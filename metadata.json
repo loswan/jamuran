@@ -1,0 +1,6 @@
+{
+  "name": "JAMATH - Game Jamuran & Matematika",
+  "description": "Game edukasi tradisional Jawa Jamuran yang dipadukan dengan tantangan garis bilangan matematika interaktif.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
