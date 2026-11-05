@@ -21,10 +21,23 @@ export interface TrackMetadata {
   lyrics: { time: number; text: string }[];
 }
 
+/**
+ * Resolves an audio file URL using Vite's BASE_URL.
+ * This guarantees seamless loading on:
+ * - Local development and AI Studio preview ('/')
+ * - GitHub Pages subpath deployment ('/jamuran/')
+ */
+export function getAudioPath(relativePath: string): string {
+  const base = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) || '/';
+  const cleanBase = base.endsWith('/') ? base : `${base}/`;
+  const cleanRelative = relativePath.startsWith('/') ? relativePath.slice(1) : relativePath;
+  return `${cleanBase}${cleanRelative}`;
+}
+
 export const JAMURAN_TRACKS: TrackMetadata[] = [
   {
     id: 1,
-    url: '/audio/1.mp3',
+    url: getAudioPath('audio/1.mp3'),
     name: 'Bait 1: Jamuran ya ge-ge thok',
     phase: 'circling',
     commandName: 'JAMUR GAGAK',
@@ -44,7 +57,7 @@ export const JAMURAN_TRACKS: TrackMetadata[] = [
   },
   {
     id: 2,
-    url: '/audio/2.mp3',
+    url: getAudioPath('audio/2.mp3'),
     name: 'Perintah 1: Jamur Gagak, Gaok-gaok',
     phase: 'command',
     commandName: 'JAMUR GAGAK',
@@ -56,7 +69,7 @@ export const JAMURAN_TRACKS: TrackMetadata[] = [
   },
   {
     id: 3,
-    url: '/audio/3.mp3',
+    url: getAudioPath('audio/3.mp3'),
     name: 'Bait 2: Jamuran ya ge-ge thok',
     phase: 'circling',
     commandName: 'JAMUR KETHEK',
@@ -76,7 +89,7 @@ export const JAMURAN_TRACKS: TrackMetadata[] = [
   },
   {
     id: 4,
-    url: '/audio/4.mp3',
+    url: getAudioPath('audio/4.mp3'),
     name: 'Perintah 2: Kethek Menek',
     phase: 'command',
     commandName: 'JAMUR KETHEK',
@@ -151,10 +164,58 @@ class JamuranAudioController {
     });
 
     this.audio.addEventListener('error', (e) => {
-      console.warn('Audio controller load error:', e);
+      const err = this.audio?.error;
+      const currentSrc = this.audio?.src || '';
+      console.warn(`[JamuranAudio] Audio loading error (code ${err?.code || 'unknown'}): ${err?.message || ''} on URL: ${currentSrc}`, e);
+
+      // Automatic fallback between /jamuran/audio/ and /audio/ in case of unexpected hosting routing
+      if (this.audio && !currentSrc.includes('fallback=1')) {
+        let fallbackUrl = '';
+        if (currentSrc.includes('/jamuran/audio/')) {
+          fallbackUrl = currentSrc.replace('/jamuran/audio/', '/audio/') + '?fallback=1';
+        } else if (currentSrc.includes('/audio/')) {
+          fallbackUrl = currentSrc.replace('/audio/', '/jamuran/audio/') + '?fallback=1';
+        }
+
+        if (fallbackUrl) {
+          console.info(`[JamuranAudio] Retrying with alternative path: ${fallbackUrl}`);
+          this.audio.src = fallbackUrl;
+          this.audio.load();
+          this.audio.play().catch(() => {});
+          return;
+        }
+      }
+
       this.isBufferingState = false;
       this.notifyStatus();
     });
+  }
+
+  private isUserGestureListenerAttached = false;
+
+  /**
+   * Browser autoplay policy helper: if audio playback was prevented
+   * because user hasn't interacted with page yet, unlocks audio upon first tap/click.
+   */
+  private unlockAutoplayOnUserInteraction(): void {
+    if (this.isUserGestureListenerAttached || typeof window === 'undefined') return;
+    this.isUserGestureListenerAttached = true;
+
+    const resumeOnGesture = () => {
+      if (this.audio && this.audio.paused) {
+        this.audio.play().catch((err) => {
+          console.warn('[JamuranAudio] Retry play after gesture failed:', err);
+        });
+      }
+      window.removeEventListener('pointerdown', resumeOnGesture);
+      window.removeEventListener('touchstart', resumeOnGesture);
+      window.removeEventListener('keydown', resumeOnGesture);
+      this.isUserGestureListenerAttached = false;
+    };
+
+    window.addEventListener('pointerdown', resumeOnGesture, { once: true });
+    window.addEventListener('touchstart', resumeOnGesture, { once: true });
+    window.addEventListener('keydown', resumeOnGesture, { once: true });
   }
 
   /**
@@ -171,10 +232,10 @@ class JamuranAudioController {
 
   public setCallbacks(
     onLyric?: (lyric: string) => void,
-    onEnded?: (completedTrackIndex: number, nextTrackIndex: number) => void
+    onTrackEnded?: (completedTrackIndex: number, nextTrackIndex: number) => void
   ): void {
     this.onLyricCallback = onLyric;
-    this.onTrackEndedCallback = onEnded;
+    this.onTrackEndedCallback = onTrackEnded;
   }
 
   /**
@@ -185,21 +246,24 @@ class JamuranAudioController {
     if (!this.audio) return Promise.resolve();
 
     const normalizedIndex = ((trackIndex % JAMURAN_TRACKS.length) + JAMURAN_TRACKS.length) % JAMURAN_TRACKS.length;
-    const isNewTrack = this.currentTrackIndex !== normalizedIndex || !this.audio.src.includes(JAMURAN_TRACKS[normalizedIndex].url);
+    const targetUrl = JAMURAN_TRACKS[normalizedIndex].url;
+    const isNewTrack = this.currentTrackIndex !== normalizedIndex || !this.audio.src.includes(targetUrl);
 
     this.currentTrackIndex = normalizedIndex;
 
     if (isNewTrack) {
       this.audio.pause();
-      this.audio.src = JAMURAN_TRACKS[normalizedIndex].url;
+      this.audio.src = targetUrl;
       this.audio.currentTime = 0;
+      this.audio.load();
     }
 
     this.audio.muted = this.isMuted;
     const playPromise = this.audio.play();
     if (playPromise !== undefined) {
       return playPromise.catch((err) => {
-        console.warn('Audio playback was prevented by browser policy:', err);
+        console.warn(`[JamuranAudio] Playback prevented for Track ${normalizedIndex + 1} (${targetUrl}):`, err);
+        this.unlockAutoplayOnUserInteraction();
       });
     }
     return Promise.resolve();

@@ -299,6 +299,10 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Support static assets under both /jamuran base path and root
+  app.use('/jamuran', express.static(path.resolve(__dirname, 'public')));
+  app.use(express.static(path.resolve(__dirname, 'public')));
+
   // Health and Room Info API
   app.get('/api/health', (req, res) => {
     res.json({

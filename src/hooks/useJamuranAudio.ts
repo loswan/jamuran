@@ -1,26 +1,40 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+export { verifyJamuranAudioFiles } from '../utils/audioDiagnostics';
+export type { AudioDiagnosticReport, AudioDiagnosticItem } from '../utils/audioDiagnostics';
+
+/**
+ * Constructs an audio file URL by prepending Vite's import.meta.env.BASE_URL
+ * to the public asset path. This ensures seamless compatibility with the
+ * GitHub Pages sub-directory (/jamuran/) as well as root-hosted development environments.
+ */
+export function getPublicAudioUrl(assetPath: string): string {
+  const base = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL) || '/';
+  const cleanBase = base.endsWith('/') ? base : `${base}/`;
+  const cleanPath = assetPath.startsWith('/') ? assetPath.slice(1) : assetPath;
+  return `${cleanBase}${cleanPath}`;
+}
 
 export const JAMURAN_AUDIO_FILES = [
-  '/audio/1.mp3',
-  '/audio/2.mp3',
-  '/audio/3.mp3',
-  '/audio/4.mp3'
+  getPublicAudioUrl('audio/1.mp3'),
+  getPublicAudioUrl('audio/2.mp3'),
+  getPublicAudioUrl('audio/3.mp3'),
+  getPublicAudioUrl('audio/4.mp3')
 ] as const;
 
-export type JamuranAudioTrackUrl = typeof JAMURAN_AUDIO_FILES[number];
+export type JamuranAudioTrackUrl = string;
 
 export interface TrackInfo {
   index: number;
   number: number; // 1-based (1, 2, 3, 4)
-  url: JamuranAudioTrackUrl;
+  url: string;
   name: string;
 }
 
 export const JAMURAN_TRACK_METADATA: TrackInfo[] = [
-  { index: 0, number: 1, url: '/audio/1.mp3', name: 'Jamuran Putaran 1 (Jamur apaaa?)' },
-  { index: 1, number: 2, url: '/audio/2.mp3', name: 'Perintah 1 (Jamur gagak, gaok-gaok)' },
-  { index: 2, number: 3, url: '/audio/3.mp3', name: 'Jamuran Putaran 2 (Jamur apaaa?)' },
-  { index: 3, number: 4, url: '/audio/4.mp3', name: 'Perintah 2 (Kethek menek)' }
+  { index: 0, number: 1, url: getPublicAudioUrl('audio/1.mp3'), name: 'Jamuran Putaran 1 (Jamur apaaa?)' },
+  { index: 1, number: 2, url: getPublicAudioUrl('audio/2.mp3'), name: 'Perintah 1 (Jamur gagak, gaok-gaok)' },
+  { index: 2, number: 3, url: getPublicAudioUrl('audio/3.mp3'), name: 'Jamuran Putaran 2 (Jamur apaaa?)' },
+  { index: 3, number: 4, url: getPublicAudioUrl('audio/4.mp3'), name: 'Perintah 2 (Kethek menek)' }
 ];
 
 export interface UseJamuranAudioOptions {
