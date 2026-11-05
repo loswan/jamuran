@@ -1,0 +1,6 @@
+{
+  "summary":  "Rencana implementasi sistem audio Web Audio API berbasis tradisi Gamelan dan skala pentatonik Slendro/Pelog untuk permainan JAMATH:\n1. Peningkatan efek suara matematika (jawaban benar berupa arpeggio saron dan bonang slendro dengan resonansi kempul; jawaban salah berupa thud kendang dan dengung gong teredam).\n2. Efek suara rintangan Jamuran (fanfare gamelan saat pemain sukses menahan pose rintangan jamuran dan transisi ritmis kendang saat penetapan/pergantian Pancer).\n3. Pengintegrasian ke siklus permainan (JamathGame.tsx dan sinkronisasi mode individu & kelompok).\n4. Pengujian build, lint, dan multiplayer test.",
+  "updatedAt":  "2026-10-30T18:29:32.046856544Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

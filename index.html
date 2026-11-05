@@ -1,8 +1,68 @@
 <!doctype html>
 <html lang="id">
   <head>
+    <script>
+      (function() {
+        try {
+          var _origFetch = typeof window !== 'undefined' ? window.fetch : null;
+          var _currentFetch = _origFetch ? _origFetch.bind(window) : null;
+
+          function defineFetchOn(obj) {
+            if (!obj) return;
+            try {
+              Object.defineProperty(obj, 'fetch', {
+                get: function() {
+                  return _currentFetch || (window.fetch ? window.fetch.bind(window) : undefined);
+                },
+                set: function(fn) {
+                  _currentFetch = fn;
+                },
+                configurable: true,
+                enumerable: true
+              });
+            } catch (e) {}
+          }
+
+          defineFetchOn(window);
+          if (typeof Window !== 'undefined' && Window.prototype) {
+            defineFetchOn(Window.prototype);
+          }
+          if (typeof globalThis !== 'undefined' && globalThis !== window) {
+            defineFetchOn(globalThis);
+          }
+
+          // Environment requirement: HMR is disabled in AI Studio; ignore WebSocket / @vite/client transport errors
+          window.addEventListener('error', function(event) {
+            var msg = event.message || (event.error && event.error.message) || '';
+            var filename = event.filename || '';
+            if (
+              msg.indexOf('WebSocket') !== -1 ||
+              msg.indexOf('@vite/client') !== -1 ||
+              msg.indexOf('createWebSocketModuleRunnerTransport') !== -1 ||
+              filename.indexOf('@vite/client') !== -1
+            ) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              return true;
+            }
+          }, true);
+
+          window.addEventListener('unhandledrejection', function(event) {
+            var reason = String(event.reason || '');
+            if (
+              reason.indexOf('WebSocket') !== -1 ||
+              reason.indexOf('@vite/client') !== -1 ||
+              reason.indexOf('createWebSocketModuleRunnerTransport') !== -1
+            ) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+            }
+          }, true);
+        } catch (e) {}
+      })();
+    </script>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>JAMATH - Game Jamuran & Matematika</title>
     <meta name="description" content="Game edukasi tradisional Jawa Jamuran yang dipadukan dengan tantangan garis bilangan matematika interaktif." />
     <meta property="og:title" content="JAMATH - Game Jamuran & Matematika" />

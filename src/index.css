@@ -1,19 +1,82 @@
 @import "tailwindcss";
 
 @layer base {
+  :root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+
+    /* Traditional Javanese Color Palette */
+    --color-forest-dark: #112925;
+    --color-forest-card: #183d38;
+    --color-forest-subtle: #0f2824;
+    --color-forest-accent: #24564b;
+    --color-gold: #ffd166;
+    --color-gold-border: #f4d7a1;
+    --color-gold-muted: #e0a93b;
+    --color-terracotta: #d95d39;
+    --color-terracotta-hover: #c04a28;
+    --color-terracotta-dark: #8c2e17;
+    --color-sage: #79b85b;
+    --color-sage-light: #b5d48c;
+    --color-sage-dark: #1e3f28;
+    --color-parchment: #fff1c7;
+    --color-parchment-dim: #d8e2dc;
+
+    /* Component Metrics */
+    --touch-target-min: 44px;
+    --panel-radius: 16px;
+    --card-radius: 12px;
+    --button-radius: 10px;
+    --badge-radius: 6px;
+  }
+
   * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+    -webkit-tap-highlight-color: transparent;
   }
 
-  body {
+  html, body, #root {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+    touch-action: manipulation;
     font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
     background-color: #112925;
     color: #f7fafc;
-    overflow: hidden;
     user-select: none;
     -webkit-user-select: none;
+    overscroll-behavior: none;
+  }
+
+  #root {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Custom subtle scrollbar for modals in landscape */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: rgba(15, 40, 36, 0.6);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(244, 215, 161, 0.4);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 209, 102, 0.7);
   }
 }
 
@@ -31,3 +94,186 @@
 .animate-fadeIn {
   animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+@keyframes transitionCurtain {
+  0% {
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes transitionSlideCard {
+  0% {
+    opacity: 0;
+    transform: translateY(-40px) scale(0.94);
+  }
+  14% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  84% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-28px) scale(0.97);
+  }
+}
+
+@keyframes badgeBounce {
+  0% {
+    transform: scale(0.5) rotate(-10deg);
+    opacity: 0;
+  }
+  45% {
+    transform: scale(1.15) rotate(4deg);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(0.95) rotate(-2deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes pulseGlowGold {
+  0%, 100% {
+    box-shadow: 0 0 16px rgba(255, 209, 102, 0.4), 0 0 30px rgba(121, 184, 91, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 32px rgba(255, 209, 102, 0.75), 0 0 50px rgba(121, 184, 91, 0.45);
+  }
+}
+
+@keyframes shimmerSlide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(200%);
+  }
+}
+
+@keyframes fillProgressBar {
+  0% {
+    width: 0%;
+  }
+  100% {
+    width: 100%;
+  }
+}
+
+@keyframes cornerSlideBounce {
+  0% {
+    opacity: 0;
+    transform: translate3d(60px, -20px, 0) scale(0.8);
+  }
+  60% {
+    opacity: 1;
+    transform: translate3d(-8px, 3px, 0) scale(1.05);
+  }
+  80% {
+    transform: translate3d(3px, -1px, 0) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@keyframes badgePopBounce {
+  0% {
+    transform: scale(0.2) rotate(-25deg);
+    opacity: 0;
+  }
+  45% {
+    transform: scale(1.3) rotate(12deg);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(0.9) rotate(-5deg);
+  }
+  88% {
+    transform: scale(1.08) rotate(2deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+}
+
+@keyframes numberGlowPop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+    filter: brightness(1.8);
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+    filter: brightness(1.4);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    filter: brightness(1);
+  }
+}
+
+.animate-transition-curtain {
+  animation: transitionCurtain 3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-transition-slide {
+  animation: transitionSlideCard 3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-badge-bounce {
+  animation: badgeBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-badge-pop-bounce {
+  animation: badgePopBounce 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-corner-scoreboard {
+  animation: cornerSlideBounce 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-number-glow {
+  animation: numberGlowPop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-pulse-gold {
+  animation: pulseGlowGold 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  animation: shimmerSlide 1.8s infinite;
+}
+
+/* Custom Safe Area utilities for notched mobile phones in landscape */
+.px-safe {
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+  padding-right: max(0.75rem, env(safe-area-inset-right));
+}
+
+.pl-safe {
+  padding-left: max(0.5rem, env(safe-area-inset-left));
+}
+
+.pr-safe {
+  padding-right: max(0.5rem, env(safe-area-inset-right));
+}
+

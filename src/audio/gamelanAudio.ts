@@ -1,7 +1,11 @@
 /**
- * Gamelan & Jamuran Audio Synthesizer (Web Audio API)
- * Plays traditional Javanese Slendro scale melody, Kendang rhythm, Gong resonance,
- * and game sound effects with zero external dependency requirements.
+ * Gamelan Sound Effects Engine (Web Audio API)
+ * Plays authentic traditional Javanese Slendro scale chimes, Kendang rhythm, Gong resonance,
+ * and game sound effects (whistle, correct/wrong chimes, obstacle fanfare, step ticks)
+ * with zero external dependency requirements.
+ *
+ * NOTE: All Jamuran vocal/song playback is handled by the local audio system
+ * (/audio/1.mp3 through /audio/4.mp3 via jamuranAudioController and useJamuranAudio).
  */
 
 // Slendro Scale Frequencies (approximate traditional tuning around Pelog/Slendro Ji-Ro-Lu-Ma-Nem)
@@ -16,50 +20,14 @@ const SLENDRO = {
   LU_HI: 696    // 3 tinggi
 };
 
-export interface LyricBeat {
-  time: number; // in seconds relative to song start
-  text: string;
-  isEndPhrase?: boolean;
-}
-
-export const JAMURAN_LYRICS: LyricBeat[] = [
-  { time: 0.5, text: "Jamuran..." },
-  { time: 2.2, text: "ya gē-gē thok..." },
-  { time: 4.8, text: "Jamur apa..." },
-  { time: 6.6, text: "ya gē-gē thok..." },
-  { time: 9.2, text: "Jamur gajih mbregijih..." },
-  { time: 11.8, text: "sa-ara-ara..." },
-  { time: 14.2, text: "Semprat-semprit..." },
-  { time: 16.0, text: "JAMUR APA?!", isEndPhrase: true }
-];
-
-export const JAMURAN_SONG_DURATION = 18.0; // seconds for one complete stanza
+import { jamuranAudioController } from '../services/jamuranAudioController';
 
 export class GamelanAudioEngine {
   private ctx: AudioContext | null = null;
   private isMuted: boolean = false;
-  private isPlayingJamuran: boolean = false;
-  private songStartTime: number = 0;
-  private songScheduledTimeouts: number[] = [];
-  private onLyricCallback?: (lyric: string) => void;
-  private onSongEndCallback?: () => void;
-  private externalAudio: HTMLAudioElement | null = null;
-  private useExternalAudio: boolean = false;
 
   constructor() {
-    // Try preloading external audio if user placed it in assets
-    try {
-      this.externalAudio = new Audio('assets/audio/jamuran.mp3');
-      this.externalAudio.preload = 'metadata';
-      this.externalAudio.addEventListener('canplaythrough', () => {
-        this.useExternalAudio = true;
-      });
-      this.externalAudio.addEventListener('error', () => {
-        this.useExternalAudio = false;
-      });
-    } catch {
-      this.useExternalAudio = false;
-    }
+    // Zero external audio dependencies in constructor
   }
 
   private initContext() {
@@ -76,9 +44,7 @@ export class GamelanAudioEngine {
 
   public setMuted(muted: boolean) {
     this.isMuted = muted;
-    if (this.externalAudio) {
-      this.externalAudio.muted = muted;
-    }
+    jamuranAudioController.setMuted(muted);
   }
 
   public getIsMuted(): boolean {
@@ -88,11 +54,6 @@ export class GamelanAudioEngine {
   public toggleMute(): boolean {
     this.setMuted(!this.isMuted);
     return this.isMuted;
-  }
-
-  public setCallbacks(onLyric?: (lyric: string) => void, onSongEnd?: () => void) {
-    this.onLyricCallback = onLyric;
-    this.onSongEndCallback = onSongEnd;
   }
 
   /**
@@ -286,145 +247,7 @@ export class GamelanAudioEngine {
     osc2.stop(now + duration);
   }
 
-  /**
-   * Starts playing the Jamuran Song (Gamelan Arrangement with Lyrics Sync)
-   */
-  public playJamuranSong() {
-    this.stopJamuranSong();
-    this.isPlayingJamuran = true;
-    this.songStartTime = performance.now();
 
-    // If external audio loaded successfully, play it too
-    if (this.externalAudio && this.useExternalAudio) {
-      this.externalAudio.currentTime = 0;
-      this.externalAudio.play().catch(() => {
-        this.useExternalAudio = false;
-      });
-    }
-
-    // Schedule Gamelan notes for the Jamuran melody:
-    // "Jamuran ya ge-ge thok"
-    // Phrase 1 (0s - 4.5s)
-    const melody: { time: number; note: number; type: 'saron' | 'bonang' }[] = [
-      // Bar 1: Ja - mu - ran (1 2 3)
-      { time: 0.0, note: SLENDRO.JI, type: 'saron' },
-      { time: 0.6, note: SLENDRO.RO, type: 'saron' },
-      { time: 1.2, note: SLENDRO.LU, type: 'saron' },
-      // ya ge - ge thok (2 1 2)
-      { time: 2.0, note: SLENDRO.RO, type: 'saron' },
-      { time: 2.6, note: SLENDRO.JI, type: 'saron' },
-      { time: 3.2, note: SLENDRO.RO, type: 'saron' },
-
-      // Bar 2: Ja - mur a - pa (3 5 3)
-      { time: 4.4, note: SLENDRO.LU, type: 'saron' },
-      { time: 5.0, note: SLENDRO.MA, type: 'saron' },
-      { time: 5.6, note: SLENDRO.LU, type: 'saron' },
-      // ya ge - ge thok (2 1 2)
-      { time: 6.4, note: SLENDRO.RO, type: 'saron' },
-      { time: 7.0, note: SLENDRO.JI, type: 'saron' },
-      { time: 7.6, note: SLENDRO.RO, type: 'saron' },
-
-      // Bar 3: Ja - mur ga - jih mbre - gi - jih (3 5 6 5 3)
-      { time: 8.8, note: SLENDRO.LU, type: 'saron' },
-      { time: 9.3, note: SLENDRO.MA, type: 'saron' },
-      { time: 9.8, note: SLENDRO.NEM, type: 'saron' },
-      { time: 10.4, note: SLENDRO.MA, type: 'saron' },
-      { time: 11.0, note: SLENDRO.LU, type: 'saron' },
-      // sa - a - ra - a - ra (2 1 2 1)
-      { time: 11.6, note: SLENDRO.RO, type: 'saron' },
-      { time: 12.2, note: SLENDRO.JI, type: 'saron' },
-      { time: 12.8, note: SLENDRO.RO, type: 'saron' },
-      { time: 13.4, note: SLENDRO.JI, type: 'saron' },
-
-      // Bar 4: Sem - prat sem - prit ja - mur a - pa? (1 2 3 5 3 2 1)
-      { time: 14.2, note: SLENDRO.JI, type: 'saron' },
-      { time: 14.7, note: SLENDRO.RO, type: 'saron' },
-      { time: 15.2, note: SLENDRO.LU, type: 'saron' },
-      { time: 15.7, note: SLENDRO.MA, type: 'saron' },
-      { time: 16.2, note: SLENDRO.LU, type: 'saron' },
-      { time: 16.7, note: SLENDRO.RO, type: 'saron' },
-      { time: 17.2, note: SLENDRO.JI, type: 'saron' }
-    ];
-
-    // Rhythm schedule (Kendang & Gong)
-    melody.forEach((m) => {
-      const tid = window.setTimeout(() => {
-        if (!this.isPlayingJamuran) return;
-        this.playSaron(m.note, 0.7, 0.24);
-      }, m.time * 1000);
-      this.songScheduledTimeouts.push(tid);
-    });
-
-    // Bonang interlocking ornament
-    for (let t = 0; t < 17.5; t += 0.4) {
-      const bonangNotes = [SLENDRO.JI_HI, SLENDRO.RO_HI, SLENDRO.LU_HI, SLENDRO.MA, SLENDRO.NEM];
-      const randomNote = bonangNotes[Math.floor((t * 2.5) % bonangNotes.length)];
-      const tid = window.setTimeout(() => {
-        if (!this.isPlayingJamuran) return;
-        this.playBonang(randomNote, 0.35, 0.12);
-      }, t * 1000);
-      this.songScheduledTimeouts.push(tid);
-    }
-
-    // Kendang beat every ~0.6 sec
-    for (let t = 0; t < 17.5; t += 0.6) {
-      const beatType = Math.floor(t / 0.6) % 3 === 0 ? 'dhung' : (Math.floor(t / 0.6) % 2 === 0 ? 'tong' : 'tak');
-      const tid = window.setTimeout(() => {
-        if (!this.isPlayingJamuran) return;
-        this.playKendang(beatType);
-      }, t * 1000);
-      this.songScheduledTimeouts.push(tid);
-    }
-
-    // Gongs at phrase boundaries (at 4.0s, 8.4s, 14.0s, and 17.5s)
-    [4.0, 8.4, 14.0, 17.4].forEach((gongTime) => {
-      const tid = window.setTimeout(() => {
-        if (!this.isPlayingJamuran) return;
-        this.playGong();
-      }, gongTime * 1000);
-      this.songScheduledTimeouts.push(tid);
-    });
-
-    // Lyrics scheduling
-    JAMURAN_LYRICS.forEach((lyric) => {
-      const tid = window.setTimeout(() => {
-        if (!this.isPlayingJamuran) return;
-        if (this.onLyricCallback) {
-          this.onLyricCallback(lyric.text);
-        }
-      }, lyric.time * 1000);
-      this.songScheduledTimeouts.push(tid);
-    });
-
-    // Song end scheduling
-    const endTid = window.setTimeout(() => {
-      if (!this.isPlayingJamuran) return;
-      this.isPlayingJamuran = false;
-      if (this.onSongEndCallback) {
-        this.onSongEndCallback();
-      }
-    }, JAMURAN_SONG_DURATION * 1000);
-    this.songScheduledTimeouts.push(endTid);
-  }
-
-  public stopJamuranSong() {
-    this.isPlayingJamuran = false;
-    this.songScheduledTimeouts.forEach((tid) => clearTimeout(tid));
-    this.songScheduledTimeouts = [];
-
-    if (this.externalAudio) {
-      try {
-        this.externalAudio.pause();
-        this.externalAudio.currentTime = 0;
-      } catch {}
-    }
-  }
-
-  public getSongProgress(): number {
-    if (!this.isPlayingJamuran) return 0;
-    const elapsed = (performance.now() - this.songStartTime) / 1000;
-    return Math.min(1, Math.max(0, elapsed / JAMURAN_SONG_DURATION));
-  }
 
   // SOUND EFFECTS:
 
@@ -497,39 +320,45 @@ export class GamelanAudioEngine {
   }
 
   /**
-   * Correct Answer fanfare chime
+   * Correct Answer: Traditional Javanese Slendro/Pelog Pentatonic Celebration Chime
+   * Plays a crisp rising Saron & Bonang chime in Slendro scale with warm Kempul resonance.
    */
   public playCorrect() {
     if (this.isMuted) return;
     this.initContext();
     if (!this.ctx) return;
 
-    const notes = [440, 554, 659, 880]; // A major cheerful chord
-    notes.forEach((freq, idx) => {
+    // Rising Slendro pentatonic cascade: Ro (308) -> Lu (348) -> Ma (412) -> Nem (465) -> Ji Tinggi (550) -> Ro Tinggi (616)
+    const slendroNotes = [
+      SLENDRO.RO,
+      SLENDRO.LU,
+      SLENDRO.MA,
+      SLENDRO.NEM,
+      SLENDRO.JI_HI,
+      SLENDRO.RO_HI
+    ];
+
+    slendroNotes.forEach((freq, idx) => {
       window.setTimeout(() => {
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq, now);
-
-        gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(0.24, now + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
-
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        osc.start(now);
-        osc.stop(now + 0.6);
-      }, idx * 100);
+        if (!this.ctx || this.isMuted) return;
+        // Saron metallic ring
+        this.playSaron(freq, 0.7, 0.22);
+        // Subtle bonang shimmer
+        this.playBonang(freq, 0.45, 0.12);
+      }, idx * 75);
     });
+
+    // Concluding Kempul / soft Gong chime after the arpeggio
+    window.setTimeout(() => {
+      if (!this.ctx || this.isMuted) return;
+      this.playGong();
+      this.playBonang(SLENDRO.LU_HI, 0.9, 0.2);
+    }, slendroNotes.length * 75 + 50);
   }
 
   /**
-   * Wrong Answer gentle boing / try again
+   * Wrong Answer: Gentle Kendang thud with soft descending Slendro tone
+   * Culturally authentic, encouraging, and clear without harsh electronic noise.
    */
   public playWrong() {
     if (this.isMuted) return;
@@ -539,21 +368,131 @@ export class GamelanAudioEngine {
     const ctx = this.ctx;
     const now = ctx.currentTime;
 
+    // Kendang thud
+    this.playKendang('dhung', 0);
+
+    // Soft muted descending tone (triangle wave through lowpass filter)
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
 
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(220, now);
-    osc.frequency.exponentialRampToValueAtTime(110, now + 0.35);
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(SLENDRO.LU, now);
+    osc.frequency.exponentialRampToValueAtTime(SLENDRO.JI * 0.75, now + 0.38);
 
-    gain.gain.setValueAtTime(0.18, now);
-    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(450, now);
 
-    osc.connect(gain);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.2, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+    osc.connect(filter);
+    filter.connect(gain);
     gain.connect(ctx.destination);
 
     osc.start(now);
-    osc.stop(now + 0.4);
+    osc.stop(now + 0.42);
+
+    // Delayed soft kendang rim tap
+    window.setTimeout(() => {
+      if (!this.ctx || this.isMuted) return;
+      this.playKendang('tong', 0);
+    }, 180);
+  }
+
+  /**
+   * Obstacle Success Fanfare: Played when players successfully hold the Jamuran pose
+   * until time runs out without moving or failing.
+   * Lively imbal bonang flourishing notes + cheerful saron strike + celebratory gong!
+   */
+  public playObstacleSuccess() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    // Rapid celebratory imbal (interlocking) bonang run
+    const fanfareNotes = [
+      SLENDRO.JI,
+      SLENDRO.LU,
+      SLENDRO.MA,
+      SLENDRO.NEM,
+      SLENDRO.JI_HI,
+      SLENDRO.LU_HI,
+      SLENDRO.RO_HI,
+      SLENDRO.JI_HI
+    ];
+
+    fanfareNotes.forEach((freq, idx) => {
+      window.setTimeout(() => {
+        if (!this.ctx || this.isMuted) return;
+        this.playBonang(freq, 0.4, 0.18);
+        if (idx % 2 === 0) {
+          this.playSaron(freq, 0.5, 0.16);
+        }
+      }, idx * 60);
+    });
+
+    // Final triumphant Gong & high Bonang chime
+    const finalDelay = fanfareNotes.length * 60 + 40;
+    window.setTimeout(() => {
+      if (!this.ctx || this.isMuted) return;
+      this.playGong();
+      this.playSaron(SLENDRO.JI_HI, 1.2, 0.28);
+      this.playBonang(SLENDRO.LU_HI, 0.8, 0.22);
+      this.playKendang('dhung');
+    }, finalDelay);
+  }
+
+  /**
+   * Pancer Transition: Played during rotation or appointment of new Pancer at the arena center.
+   * Rhythmic kendang drum roll ('dhung-tak-dhung-tong') followed by a deep gong beat.
+   */
+  public playPancerTransition() {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    const drumPattern: { time: number; type: 'dhung' | 'tak' | 'tong' }[] = [
+      { time: 0, type: 'dhung' },
+      { time: 140, type: 'tak' },
+      { time: 260, type: 'dhung' },
+      { time: 380, type: 'tak' },
+      { time: 480, type: 'tong' }
+    ];
+
+    drumPattern.forEach((beat) => {
+      window.setTimeout(() => {
+        if (!this.ctx || this.isMuted) return;
+        this.playKendang(beat.type);
+      }, beat.time);
+    });
+
+    // Concluding Gong and Saron tone to signal new round center Pancer
+    window.setTimeout(() => {
+      if (!this.ctx || this.isMuted) return;
+      this.playGong();
+      this.playSaron(SLENDRO.NEM, 1.0, 0.25);
+    }, 580);
+  }
+
+  /**
+   * Pose Countdown Tick: Subtle kendang tap during last 3 seconds of holding Jamuran pose.
+   */
+  public playPoseCountdownTick(secondsRemaining: number) {
+    if (this.isMuted) return;
+    this.initContext();
+    if (!this.ctx) return;
+
+    if (secondsRemaining <= 1) {
+      this.playKendang('tak');
+      this.playBonang(SLENDRO.JI_HI, 0.2, 0.14);
+    } else if (secondsRemaining <= 2) {
+      this.playKendang('tong');
+      this.playBonang(SLENDRO.NEM, 0.2, 0.12);
+    } else {
+      this.playKendang('tak');
+    }
   }
 
   /**

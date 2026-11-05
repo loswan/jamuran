@@ -1,11 +1,15 @@
+export type GameMode = 'INDIVIDUAL' | 'GROUP';
+
 export type GameState =
   | 'MENU'
   | 'CHARACTER_SELECT'
-  | 'JAMURAN'
+  | 'MODE_SELECT'
+  | 'LOBBY'
   | 'MUSIC_PLAYING'
   | 'MUSIC_STOPPED'
   | 'JAMUR_COMMAND'
   | 'JAMUR_ACTION'
+  | 'TURN_NOMINATION'
   | 'MATH_CHALLENGE'
   | 'FEEDBACK_CORRECT'
   | 'FEEDBACK_WRONG'
@@ -22,6 +26,27 @@ export interface CharacterInfo {
   color: string;
 }
 
+export interface PlayerProfile {
+  id: string;
+  name: string;
+  character: CharacterType;
+  colorVariant: number;
+  groupId?: string;
+  isHost?: boolean;
+  isReady?: boolean;
+  joinedAt: number;
+}
+
+export interface GroupProfile {
+  id: string;
+  name: string;
+  character: CharacterType;
+  colorVariant: number;
+  score: number;
+  isPancer: boolean;
+  memberIds: string[];
+}
+
 export interface MathQuestion {
   id: number;
   prompt: string;
@@ -33,7 +58,7 @@ export interface MathQuestion {
   conceptNote: string;
 }
 
-export type JamurCommandId = 'kethek' | 'gagang' | 'payung' | 'meja_kursi' | 'barat';
+export type JamurCommandId = 'gagak' | 'kethek' | 'gagang' | 'payung' | 'meja_kursi';
 
 export interface JamurCommand {
   id: JamurCommandId;
@@ -75,6 +100,7 @@ export interface NpcMember {
 export interface PancerState {
   character: CharacterType;
   name: string;
+  groupId?: string;
   x: number;
   y: number;
   directionRow: number;
@@ -90,3 +116,58 @@ export interface GameScore {
   totalAnswered: number;
   correctCount: number;
 }
+
+// Multiplayer Room State broadcast by server
+export interface RoomState {
+  roomCode: string;
+  hostId: string;
+  mode: GameMode;
+  phase: GameState;
+  players: Record<string, PlayerProfile>;
+  groups: Record<string, GroupProfile>;
+  activeSelectorGroupId: string | null;
+  activeTargetGroupId: string | null;
+  pancerGroupId: string | null;
+  currentQuestion: MathQuestion;
+  questionIndex: number;
+  numberLineMin: number;
+  numberLineMax: number;
+  numberLineCurrent: number;
+  numberLineStart: number;
+  activeCommand: JamurCommand;
+  commandDialogElapsed: number;
+  actionElapsed: number;
+  feedbackElapsed: number;
+  feedbackResult: 'correct' | 'wrong' | null;
+  turnTimeRemaining: number;
+  maxTurnTime: number;
+  announcement: string | null;
+  roundNumber: number;
+  updatedAt: number;
+}
+
+// Client-to-Server Messages
+export type ClientMessage =
+  | { type: 'CREATE_ROOM'; payload: { mode: GameMode; player: Omit<PlayerProfile, 'isHost' | 'joinedAt'> } }
+  | { type: 'JOIN_ROOM'; payload: { roomCode: string; player: Omit<PlayerProfile, 'isHost' | 'joinedAt'> } }
+  | { type: 'UPDATE_PROFILE'; payload: { name: string; character: CharacterType; colorVariant: number } }
+  | { type: 'JOIN_GROUP'; payload: { groupId: string; groupName?: string } }
+  | { type: 'CREATE_GROUP'; payload: { name: string; character: CharacterType; colorVariant: number } }
+  | { type: 'START_GAME' }
+  | { type: 'SELECT_TARGET_GROUP'; payload: { targetGroupId: string } }
+  | { type: 'MOVE_NUMBER_LINE'; payload: { position: number } }
+  | { type: 'SUBMIT_ANSWER'; payload: { position: number } }
+  | { type: 'PHASE_COMPLETE'; payload?: { currentPhase: GameState } }
+  | { type: 'RESTART_ROUND' }
+  | { type: 'LEAVE_ROOM' }
+  | { type: 'PING' };
+
+// Server-to-Client Messages
+export type ServerMessage =
+  | { type: 'ROOM_CREATED'; payload: { roomCode: string; playerId: string; roomState: RoomState } }
+  | { type: 'ROOM_JOINED'; payload: { roomCode: string; playerId: string; roomState: RoomState } }
+  | { type: 'ROOM_STATE_UPDATE'; payload: RoomState }
+  | { type: 'ERROR'; payload: { message: string; code?: string } }
+  | { type: 'PLAYER_DISCONNECTED'; payload: { playerId: string; playerName: string } }
+  | { type: 'ANNOUNCEMENT'; payload: { message: string; level?: 'info' | 'success' | 'warning' } }
+  | { type: 'PONG' };

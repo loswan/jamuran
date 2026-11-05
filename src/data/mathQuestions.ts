@@ -85,12 +85,20 @@ export const MATH_QUESTIONS: MathQuestion[] = [
 
 export const JAMUR_COMMANDS = [
   {
+    id: 'gagak' as const,
+    name: 'JAMUR GAGAK',
+    javaneseName: 'Jamur Gagak (Gaok-gaok)',
+    description: 'Mengepakkan kedua tangan seperti sayap burung gagak sambil bersuara gaok-gaok!',
+    actionInstruction: 'Kepakkan sayapmu seperti burung gagak gaok-gaok!',
+    duration: 11.6
+  },
+  {
     id: 'kethek' as const,
     name: 'JAMUR KETHEK',
-    javaneseName: 'Jamur Kethek (Kethekan)',
-    description: 'Menirukan gerakan monyet yang lucu sedang menggaruk ketiak dan kepala!',
-    actionInstruction: 'Tirukan monyet menggaruk badan dengan gembira!',
-    duration: 3.5
+    javaneseName: 'Jamur Kethek (Kethek Menek)',
+    description: 'Menirukan monyet lincah memanjat dahan pohon dan bergaya ceria!',
+    actionInstruction: 'Tirukan monyet memanjat pohon dan bergaya lucu!',
+    duration: 30.8
   },
   {
     id: 'gagang' as const,
