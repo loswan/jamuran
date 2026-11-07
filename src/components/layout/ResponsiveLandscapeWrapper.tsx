@@ -26,6 +26,7 @@ export const ResponsiveLandscapeWrapper: React.FC<ResponsiveLandscapeWrapperProp
   ...props
 }) => {
   const [isDesktopLandscape, setIsDesktopLandscape] = useState<boolean>(true);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -37,17 +38,35 @@ export const ResponsiveLandscapeWrapper: React.FC<ResponsiveLandscapeWrapperProp
         window.matchMedia('(pointer: fine)').matches &&
         !window.matchMedia('(pointer: coarse)').matches;
 
-      // Only constrain with max bounds on desktop landscape screens
+      // Check current fullscreen state
+      const doc = document as Document & {
+        webkitFullscreenElement?: Element | null;
+        mozFullScreenElement?: Element | null;
+        msFullscreenElement?: Element | null;
+      };
+      const activeFullscreen = Boolean(
+        doc.fullscreenElement ||
+        doc.webkitFullscreenElement ||
+        doc.mozFullScreenElement ||
+        doc.msFullscreenElement
+      );
+      setIsFullscreen(activeFullscreen);
+
+      // Only constrain with max bounds on desktop landscape screens when not in fullscreen
       setIsDesktopLandscape(w > h && w >= 1024 && hasFinePointer);
     };
 
     handleResize();
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleResize);
+    document.addEventListener('fullscreenchange', handleResize);
+    document.addEventListener('webkitfullscreenchange', handleResize);
 
     return () => {
       window.removeEventListener('resize', handleResize);
       window.removeEventListener('orientationchange', handleResize);
+      document.removeEventListener('fullscreenchange', handleResize);
+      document.removeEventListener('webkitfullscreenchange', handleResize);
     };
   }, []);
 
@@ -60,9 +79,9 @@ export const ResponsiveLandscapeWrapper: React.FC<ResponsiveLandscapeWrapperProp
       {/* Landscape-First Responsive Game Frame */}
       <main
         className={`w-full h-full flex flex-col flex-1 min-w-0 min-h-0 relative overflow-hidden bg-[#112925] box-border ${
-          isDesktopLandscape
+          isDesktopLandscape && !isFullscreen
             ? `${maxWidthClass} ${maxHeightClass} shadow-2xl rounded-none md:rounded-[16px]`
-            : 'max-w-none max-h-none'
+            : 'max-w-none max-h-none rounded-none'
         } ${className}`}
         style={{ boxSizing: 'border-box' }}
         {...props}

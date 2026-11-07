@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { RoomState } from '../types/game';
 import { multiplayerService } from '../services/multiplayerService';
 import { Button, Panel, Badge } from './ui';
-import { Copy, Check, Users, Play, LogOut, Crown, ShieldAlert, Sparkles, UserCheck } from 'lucide-react';
+import { Copy, Check, Users, Play, LogOut, Crown, ShieldAlert, Sparkles, UserCheck, Maximize2, Minimize2 } from 'lucide-react';
 
 interface LobbyViewProps {
   roomState: RoomState;
   myPlayerId: string;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
   onStartGame: () => void;
   onLeaveRoom: () => void;
 }
@@ -14,6 +16,8 @@ interface LobbyViewProps {
 export const LobbyView: React.FC<LobbyViewProps> = ({
   roomState,
   myPlayerId,
+  isFullscreen = false,
+  onToggleFullscreen,
   onStartGame,
   onLeaveRoom
 }) => {
@@ -71,21 +75,40 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
           </div>
         </div>
 
-        {/* Room Code Badge */}
-        <div className="flex items-center gap-2 bg-[#0f2824] px-3 py-1.5 rounded-[10px] border border-[#79b85b]/40 shrink-0">
-          <div>
-            <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">KODE ROOM</div>
-            <div className="text-base sm:text-lg font-mono font-black text-[#ffd166] tracking-widest leading-none">
-              {roomState.roomCode}
+        {/* Right Header Group: Room Code Badge & Fullscreen Toggle */}
+        <div className="flex items-center gap-2">
+          {/* Room Code Badge */}
+          <div className="flex items-center gap-2 bg-[#0f2824] px-3 py-1.5 rounded-[10px] border border-[#79b85b]/40 shrink-0">
+            <div>
+              <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider">KODE ROOM</div>
+              <div className="text-base sm:text-lg font-mono font-black text-[#ffd166] tracking-widest leading-none">
+                {roomState.roomCode}
+              </div>
             </div>
+            <button
+              onClick={copyRoomCode}
+              className="w-8 h-8 rounded-[10px] bg-[#24564b] hover:bg-[#1a443e] text-[#fff1c7] border border-[#f4d7a1]/40 flex items-center justify-center transition-transform active:scale-90 cursor-pointer"
+              title="Salin Kode Room"
+            >
+              {copied ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
+            </button>
           </div>
-          <button
-            onClick={copyRoomCode}
-            className="w-8 h-8 rounded-[10px] bg-[#24564b] hover:bg-[#1a443e] text-[#fff1c7] border border-[#f4d7a1]/40 flex items-center justify-center transition-transform active:scale-90 cursor-pointer"
-            title="Salin Kode Room"
-          >
-            {copied ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
-          </button>
+
+          {/* Fullscreen Button */}
+          {onToggleFullscreen && (
+            <button
+              onClick={onToggleFullscreen}
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-[10px] bg-[#0f2824] hover:bg-[#24564b] border border-[#f4d7a1]/40 flex items-center justify-center text-[#fff1c7] transition-all cursor-pointer active:scale-95 touch-manipulation shrink-0"
+              title={isFullscreen ? 'Keluar dari Layar Penuh' : 'Mode Layar Penuh (Fullscreen)'}
+              aria-label={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
+            >
+              {isFullscreen ? (
+                <Minimize2 className="w-4 h-4 text-[#ffd166]" />
+              ) : (
+                <Maximize2 className="w-4 h-4 text-[#ffd166]" />
+              )}
+            </button>
+          )}
         </div>
       </header>
 

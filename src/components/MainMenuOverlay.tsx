@@ -1,13 +1,15 @@
 import React from 'react';
 import { PlayerProfile, GameMode } from '../types/game';
-import { Play, Users, User, HelpCircle, Volume2, VolumeX, Sparkles, Edit3 } from 'lucide-react';
+import { Play, Users, User, HelpCircle, Volume2, VolumeX, Sparkles, Edit3, Maximize2, Minimize2 } from 'lucide-react';
 import { Button, Panel, Badge } from './ui';
 
 interface MainMenuOverlayProps {
   playerProfile: PlayerProfile;
   gameMode: GameMode;
   isMuted: boolean;
+  isFullscreen?: boolean;
   onToggleMute: () => void;
+  onToggleFullscreen?: () => void;
   onStartPlay: () => void;
   onOpenModeSelect: () => void;
   onOpenIdentityModal: () => void;
@@ -18,7 +20,9 @@ export const MainMenuOverlay: React.FC<MainMenuOverlayProps> = ({
   playerProfile,
   gameMode,
   isMuted,
+  isFullscreen = false,
   onToggleMute,
+  onToggleFullscreen,
   onStartPlay,
   onOpenModeSelect,
   onOpenIdentityModal,
@@ -59,6 +63,22 @@ export const MainMenuOverlay: React.FC<MainMenuOverlayProps> = ({
               <Volume2 className="w-4 h-4 text-[#ffd166]" />
             )}
           </button>
+
+          {/* Fullscreen Toggle */}
+          {onToggleFullscreen && (
+            <button
+              onClick={onToggleFullscreen}
+              className="w-9 h-9 sm:w-10 sm:h-10 rounded-[10px] bg-[#183d38] hover:bg-[#24564b] border border-[#f4d7a1]/30 flex items-center justify-center text-[#fff1c7] transition-all cursor-pointer active:scale-95 touch-manipulation"
+              title={isFullscreen ? 'Keluar dari Layar Penuh' : 'Mode Layar Penuh (Fullscreen)'}
+              aria-label={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
+            >
+              {isFullscreen ? (
+                <Minimize2 className="w-4 h-4 text-[#ffd166]" />
+              ) : (
+                <Maximize2 className="w-4 h-4 text-[#ffd166]" />
+              )}
+            </button>
+          )}
 
           {/* Help Button */}
           <button

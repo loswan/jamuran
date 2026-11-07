@@ -35,6 +35,7 @@ import {
 import { multiplayerService } from '../services/multiplayerService';
 import { jamuranAudioController } from '../services/jamuranAudioController';
 import { MathQuestion } from '../types/game';
+import { useFullscreen } from '../hooks/useFullscreen';
 
 const CIRCLE_PLAYER_COUNT = 7;
 const NPC_COUNT = CIRCLE_PLAYER_COUNT - 1;
@@ -47,6 +48,14 @@ export const JamathGame: React.FC = () => {
     width: typeof window !== 'undefined' ? window.innerWidth : 800,
     height: typeof window !== 'undefined' ? window.innerHeight : 450
   });
+
+  // Fullscreen Mode Controller
+  const {
+    isFullscreen,
+    message: fullscreenMessage,
+    toggleFullscreen,
+    dismissMessage: dismissFullscreenMessage
+  } = useFullscreen();
 
   // App Navigation States
   const [appScreen, setAppScreen] = useState<'GAME' | 'LOBBY'>('GAME');
@@ -819,12 +828,28 @@ export const JamathGame: React.FC = () => {
       {/* Mobile Portrait helper prompt (Only active during actual gameplay on mobile) */}
       <OrientationPrompt appScreen={appScreen} gameState={gameState} />
 
+      {/* Fullscreen Feedback / Unsupported Toast */}
+      {fullscreenMessage && (
+        <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-sm w-[90%] px-4 py-2.5 bg-[#183d38]/95 backdrop-blur-md border border-[#ffd166] rounded-[12px] shadow-2xl flex items-center justify-between gap-2 text-xs text-[#fff1c7] animate-fadeIn pointer-events-auto">
+          <span>{fullscreenMessage}</span>
+          <button
+            onClick={dismissFullscreenMessage}
+            className="p-1 rounded-[6px] hover:bg-[#24564b] text-slate-300 hover:text-white cursor-pointer"
+            title="Tutup"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* If currently in Lobby screen */}
       {appScreen === 'LOBBY' && serverRoomState ? (
         <div className="flex-1 w-full h-full min-h-0 min-w-0 flex flex-col overflow-hidden box-border">
           <LobbyView
             roomState={serverRoomState}
             myPlayerId={playerProfile.id}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
             onStartGame={() => {
               multiplayerService.startGame();
               setAppScreen('GAME');
@@ -852,6 +877,7 @@ export const JamathGame: React.FC = () => {
                   : singleScore.current
               }
               isMuted={isMuted}
+              isFullscreen={isFullscreen}
               currentLyric={currentLyric}
               isSingingPhase={gameState === 'MUSIC_PLAYING'}
               onHomeClick={() => {
@@ -869,6 +895,7 @@ export const JamathGame: React.FC = () => {
                 setShowManualScoreboard((prev) => !prev);
               }}
               onToggleMute={toggleMute}
+              onToggleFullscreen={toggleFullscreen}
               onOpenHelp={() => setIsHelpOpen(true)}
             />
           )}
@@ -911,7 +938,9 @@ export const JamathGame: React.FC = () => {
                   playerProfile={playerProfile}
                   gameMode={gameMode}
                   isMuted={isMuted}
+                  isFullscreen={isFullscreen}
                   onToggleMute={toggleMute}
+                  onToggleFullscreen={toggleFullscreen}
                   onStartPlay={() => {
                     audioManager.playClick();
                     setShowModeModal(true);

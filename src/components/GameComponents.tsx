@@ -8,7 +8,9 @@ import {
   ArrowRight,
   ChevronLeft,
   ChevronRight,
-  Target
+  Target,
+  Maximize2,
+  Minimize2
 } from 'lucide-react';
 import { Button, Panel, Modal, Badge } from './ui';
 import { RoomState, MathQuestion } from '../types/game';
@@ -53,11 +55,13 @@ export interface GameHeaderProps {
   roundNumber: number;
   score: number;
   isMuted: boolean;
+  isFullscreen?: boolean;
   currentLyric?: string;
   isSingingPhase: boolean;
   onHomeClick: () => void;
   onScoreboardToggle: () => void;
   onToggleMute: () => void;
+  onToggleFullscreen?: () => void;
   onOpenHelp: () => void;
 }
 
@@ -67,11 +71,13 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
   roundNumber,
   score,
   isMuted,
+  isFullscreen = false,
   currentLyric,
   isSingingPhase,
   onHomeClick,
   onScoreboardToggle,
   onToggleMute,
+  onToggleFullscreen,
   onOpenHelp
 }) => {
   return (
@@ -105,7 +111,7 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
       )}
 
       {/* Right Controls & Scores */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-2">
         <button
           onClick={onScoreboardToggle}
           className="flex items-center gap-1.5 text-xs cursor-pointer hover:opacity-90 active:scale-95 transition-all box-border"
@@ -131,6 +137,22 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
         >
           {isMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5 text-[#ffd166]" />}
         </button>
+
+        {/* Fullscreen Toggle */}
+        {onToggleFullscreen && (
+          <button
+            onClick={onToggleFullscreen}
+            className="w-8 h-8 rounded-[10px] bg-[#0f2824] hover:bg-[#24564b] border border-[#f4d7a1]/30 flex items-center justify-center text-[#fff1c7] transition-all cursor-pointer active:scale-95 touch-manipulation"
+            title={isFullscreen ? 'Keluar dari Layar Penuh' : 'Mode Layar Penuh (Fullscreen)'}
+            aria-label={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
+          >
+            {isFullscreen ? (
+              <Minimize2 className="w-3.5 h-3.5 text-[#ffd166]" />
+            ) : (
+              <Maximize2 className="w-3.5 h-3.5 text-[#ffd166]" />
+            )}
+          </button>
+        )}
 
         {/* Help Button */}
         <button
