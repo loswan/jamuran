@@ -688,7 +688,19 @@ export const JamathGame: React.FC = () => {
         const prevActionElapsed = st.actionElapsed;
         st.actionElapsed += deltaTime;
         drawCircleParticipants(ctx, st, centerX, centerY, serverRoomState, arenaH, st.activeCommand.id, st.actionElapsed);
-        drawActionBanner(ctx, w, h, st.activeCommand, st.actionElapsed, isLandscape);
+        drawActionBanner(
+          ctx,
+          w,
+          h,
+          st.activeCommand,
+          st.actionElapsed,
+          isLandscape,
+          arenaX,
+          arenaY,
+          arenaW,
+          arenaH,
+          circleRadius
+        );
 
         // Play countdown tick during the final 3, 2, 1 seconds of holding pose
         const prevSec = Math.ceil(Math.max(0, st.activeCommand.duration - prevActionElapsed));
@@ -862,7 +874,7 @@ export const JamathGame: React.FC = () => {
           )}
 
           {/* ROW 2: MAIN GAME AREA (Column 1: MathQuestionPanel, Column 2: Jamuran Canvas Arena) */}
-          <div className="flex-1 w-full min-h-0 min-w-0 flex flex-row items-stretch p-1 sm:p-2 px-safe gap-2 sm:gap-3 overflow-hidden relative box-border">
+          <div className="flex-1 w-full min-h-0 min-w-0 flex flex-row items-stretch p-1 sm:p-2 px-safe gap-3 sm:gap-4 overflow-hidden relative box-border">
             {/* Column 1: Math Question Panel (Only rendered during Math Challenge & Feedback) */}
             {(gameState === 'MATH_CHALLENGE' || gameState === 'FEEDBACK_CORRECT' || gameState === 'FEEDBACK_WRONG') && (
               <div className="w-[230px] xs:w-[260px] sm:w-[290px] md:w-[330px] max-w-[36%] h-full shrink-0 flex flex-col justify-center box-border z-10">
@@ -1472,32 +1484,106 @@ function drawActionBanner(
   h: number,
   command: any,
   elapsed: number,
-  isLandscape: boolean
+  isLandscape: boolean,
+  arenaX?: number,
+  arenaY?: number,
+  arenaW?: number,
+  arenaH?: number,
+  circleRadius?: number
 ) {
-  const bannerW = Math.min(w * 0.6, 480);
-  const bannerH = isLandscape ? 52 : 62;
-  const bannerX = (w - bannerW) / 2;
-  const bannerY = isLandscape ? Math.max(46, h * 0.12) : 60;
+  const topOffset = isLandscape ? Math.max(38, Math.min(48, h * 0.12)) : 52;
   const remaining = Math.max(0, Math.ceil(command.duration - elapsed));
 
+  // Compact floating card dimensions (small, minimalist, unobtrusive)
+  const overlayW = isLandscape ? Math.min(230, Math.max(185, w * 0.26)) : Math.min(220, w - 24);
+  const overlayH = isLandscape ? 48 : 52;
+
+  // Safe placement on the upper-right side of the arena, strictly avoiding all character positions
+  const defaultArenaRight = arenaX !== undefined && arenaW !== undefined ? arenaX + arenaW : w - 16;
+  const defaultArenaTop = arenaY !== undefined ? arenaY : topOffset;
+
+  const overlayX = Math.min(defaultArenaRight - overlayW - 12, w - overlayW - 14);
+  const overlayY = Math.max(topOffset + 6, defaultArenaTop + 8);
+
   ctx.save();
-  ctx.fillStyle = 'rgba(24, 61, 56, 0.92)';
-  ctx.strokeStyle = '#ffd166';
-  ctx.lineWidth = 2.5;
+
+  // 1. Dark green background with ~65% transparency (Glassmorphic HUD overlay)
+  ctx.fillStyle = 'rgba(15, 45, 38, 0.65)';
+  // Subtle hairline border (no thick heavy borders)
+  ctx.strokeStyle = 'rgba(255, 209, 102, 0.35)';
+  ctx.lineWidth = 1;
+
   ctx.beginPath();
-  ctx.roundRect(bannerX, bannerY, bannerW, bannerH, 12);
+  // Soft, lightweight rounded corners (8px)
+  ctx.roundRect(overlayX, overlayY, overlayW, overlayH, 8);
   ctx.fill();
   ctx.stroke();
 
+  // Internal padding
+  const padX = 10;
+  const contentLeft = overlayX + padX;
+  const contentRight = overlayX + overlayW - padX;
+  const contentWidth = overlayW - padX * 2;
+
+  // 2. Header Row: Action Title in Gold + Compact Timer Badge
+  const headerY = overlayY + 14;
+
+  // Action Title (Gold #ffd166, bold, concise)
   ctx.fillStyle = '#ffd166';
-  ctx.font = `bold ${isLandscape ? 14 : 16}px Arial`;
-  ctx.textAlign = 'center';
+  ctx.font = `bold ${isLandscape ? 11 : 12}px Arial`;
+  ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
-  ctx.fillText(`AKSI ${command.name}  •  ${remaining}s`, w / 2, bannerY + (isLandscape ? 18 : 22));
+  const actionTitle = `AKSI ${command.name.toUpperCase()}`;
+  ctx.fillText(actionTitle, contentLeft, headerY);
+
+  // Timer pill badge on top-right of the card (clear without dominating)
+  const timerText = `${remaining}s`;
+  ctx.font = `bold ${isLandscape ? 10 : 11}px Arial`;
+  const timerWidth = ctx.measureText(timerText).width + 10;
+  const timerH = 16;
+  const timerX = contentRight - timerWidth;
+  const timerY = headerY - timerH / 2;
+
+  ctx.fillStyle = remaining <= 3 ? 'rgba(229, 62, 62, 0.75)' : 'rgba(217, 93, 57, 0.55)';
+  ctx.beginPath();
+  ctx.roundRect(timerX, timerY, timerWidth, timerH, 4);
+  ctx.fill();
 
   ctx.fillStyle = '#fff1c7';
-  ctx.font = `${isLandscape ? 11 : 12}px Arial`;
-  ctx.fillText(command.actionInstruction, w / 2, bannerY + (isLandscape ? 36 : 44));
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(timerText, timerX + timerWidth / 2, headerY);
+
+  // 3. Instruction Row: small, clean, easy-to-read font (#fff1c7)
+  const instructionY = headerY + 12;
+  ctx.fillStyle = '#fff1c7';
+  ctx.font = `${isLandscape ? 9.5 : 10}px Arial`;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+
+  // Single or double line wrapped text cleanly fitting within contentWidth
+  const words = command.actionInstruction.split(' ');
+  let line = '';
+  let curY = instructionY;
+  let lineCount = 0;
+
+  for (let n = 0; n < words.length; n++) {
+    const testLine = line + (line ? ' ' : '') + words[n];
+    const metrics = ctx.measureText(testLine);
+    if (metrics.width > contentWidth && n > 0) {
+      ctx.fillText(line, contentLeft, curY);
+      line = words[n];
+      curY += 12;
+      lineCount++;
+      if (lineCount >= 2) break;
+    } else {
+      line = testLine;
+    }
+  }
+  if (lineCount < 2 && line) {
+    ctx.fillText(line, contentLeft, curY);
+  }
+
   ctx.restore();
 }
 

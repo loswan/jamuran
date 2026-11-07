@@ -207,7 +207,7 @@ export const MathQuestionPanel: React.FC<MathQuestionPanelProps> = ({
   if (!question) return null;
 
   return (
-    <div className="w-full h-full flex flex-col justify-between p-2.5 sm:p-3.5 bg-[#183d38]/95 backdrop-blur-md rounded-[16px] border-2 border-[#f4d7a1] shadow-2xl overflow-y-auto box-border text-[#fff1c7]">
+    <div className="w-full h-full flex flex-col justify-between p-2.5 sm:p-3.5 bg-[#183d38]/95 backdrop-blur-md rounded-[16px] border-[1.5px] border-[#f4d7a1]/60 shadow-xl overflow-y-auto box-border text-[#fff1c7]">
       {/* Header section with title and optional target group badge */}
       <div className="flex flex-col pt-1 sm:pt-1.5">
         <div className="flex items-center justify-between gap-1.5 flex-wrap">
