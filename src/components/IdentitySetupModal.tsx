@@ -101,12 +101,12 @@ export const IdentitySetupModal: React.FC<IdentitySetupModalProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
           {/* Left Column: Character Preview & Selector */}
           <div className="sm:col-span-5 flex flex-col items-center bg-[#0f2824] p-3 rounded-[16px] border border-[#79b85b]/30">
-            <div className="relative">
-              <canvas ref={canvasRef} width={130} height={135} className="block" />
-              <div className="absolute top-1 left-1">
-                <Badge variant="sage" size="sm">Pratinjau</Badge>
-              </div>
+            {/* Label PRATINJAU di pojok kiri atas kartu preview */}
+            <div className="w-full flex items-center justify-start mb-1">
+              <Badge variant="sage" size="sm">PRATINJAU</Badge>
             </div>
+
+            <canvas ref={canvasRef} width={130} height={135} className="block" />
 
             {/* Character Selector - Strictly 10px radius buttons */}
             <div className="grid grid-cols-2 gap-1.5 w-full mt-2">

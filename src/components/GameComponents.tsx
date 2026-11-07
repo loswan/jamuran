@@ -209,7 +209,7 @@ export const MathQuestionPanel: React.FC<MathQuestionPanelProps> = ({
   return (
     <div className="w-full h-full flex flex-col justify-between p-2.5 sm:p-3.5 bg-[#183d38]/95 backdrop-blur-md rounded-[16px] border-2 border-[#f4d7a1] shadow-2xl overflow-y-auto box-border text-[#fff1c7]">
       {/* Header section with title and optional target group badge */}
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col pt-1 sm:pt-1.5">
         <div className="flex items-center justify-between gap-1.5 flex-wrap">
           <span className="text-[11px] sm:text-xs font-black tracking-wider text-[#ffd166] uppercase font-serif">
             TANTANGAN MATEMATIKA
@@ -220,7 +220,7 @@ export const MathQuestionPanel: React.FC<MathQuestionPanelProps> = ({
             </span>
           )}
         </div>
-        <p className="text-xs sm:text-[13px] text-[#fff1c7] font-semibold leading-snug">
+        <p className="mt-2 sm:mt-2.5 pt-0.5 sm:pt-1 text-xs sm:text-[13px] text-[#fff1c7] font-semibold leading-snug">
           {question.prompt}
         </p>
       </div>

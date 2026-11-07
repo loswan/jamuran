@@ -14,7 +14,22 @@ export interface DrawCharacterOptions {
   directionRow?: number; // 0: front, 1: left, 2: right, 3: back
   walkFrame?: number;
   flipHorizontal?: boolean;
-  actionState?: 'normal' | 'kethek' | 'gagang' | 'payung' | 'meja_kursi' | 'barat' | 'correct' | 'wrong';
+  actionState?:
+    | 'normal'
+    | 'holding_hands'
+    | 'gagak'
+    | 'kethek'
+    | 'gagang'
+    | 'payung'
+    | 'meja_kursi'
+    | 'barat'
+    | 'correct'
+    | 'wrong'
+    | 'pancer_clapping'
+    | 'pancer_stop'
+    | 'pancer_instruct'
+    | 'pancer_observe'
+    | 'pancer_celebrate';
   actionElapsed?: number;
   colorVariant?: number; // for NPC variations
   isPancer?: boolean;
@@ -23,6 +38,39 @@ export interface DrawCharacterOptions {
 
 export const CHARACTER_RENDER_WIDTH = 78;
 export const CHARACTER_RENDER_HEIGHT = 96;
+
+// Color palettes based on character and variant
+export const BOY_PALETTES = [
+  { shirt: '#2b6cb0', shirtPattern: '#1a4971', blangkon: '#4a2810', sarong: '#744210' },
+  { shirt: '#c53030', shirtPattern: '#7b1c1c', blangkon: '#38200d', sarong: '#652b19' },
+  { shirt: '#285e61', shirtPattern: '#1d4044', blangkon: '#442b15', sarong: '#593817' },
+  { shirt: '#6b46c1', shirtPattern: '#44337a', blangkon: '#322312', sarong: '#553c25' }
+];
+
+export const GIRL_PALETTES = [
+  { kebaya: '#dd6b20', kebayaTrim: '#9c4221', hairRibbon: '#e53e3e', jarik: '#744210' },
+  { kebaya: '#d53f8c', kebayaTrim: '#97266d', hairRibbon: '#3182ce', jarik: '#5d3714' },
+  { kebaya: '#38a169', kebayaTrim: '#22543d', hairRibbon: '#d69e2e', jarik: '#683d18' },
+  { kebaya: '#805ad5', kebayaTrim: '#553c9a', hairRibbon: '#dd6b20', jarik: '#5a3415' }
+];
+
+export function getBoyTheme(colorVariant: number = 0) {
+  return BOY_PALETTES[Math.abs(colorVariant) % BOY_PALETTES.length];
+}
+
+export function getGirlTheme(colorVariant: number = 0) {
+  return GIRL_PALETTES[Math.abs(colorVariant) % GIRL_PALETTES.length];
+}
+
+export function getAttireTheme(character: CharacterType, colorVariant: number = 0) {
+  if (character === 'boy') {
+    const t = getBoyTheme(colorVariant);
+    return { shirt: t.shirt, shirtPattern: t.shirtPattern };
+  } else {
+    const t = getGirlTheme(colorVariant);
+    return { shirt: t.kebaya, shirtPattern: t.kebayaTrim };
+  }
+}
 
 export function drawVectorCharacter(
   ctx: CanvasRenderingContext2D,
@@ -72,35 +120,33 @@ export function drawVectorCharacter(
   ctx.fill();
   ctx.restore();
 
-  // Color palettes based on character and variant
-  const boyPalettes = [
-    { shirt: '#2b6cb0', shirtPattern: '#1a4971', blangkon: '#4a2810', sarong: '#744210' },
-    { shirt: '#c53030', shirtPattern: '#7b1c1c', blangkon: '#38200d', sarong: '#652b19' },
-    { shirt: '#285e61', shirtPattern: '#1d4044', blangkon: '#442b15', sarong: '#593817' },
-    { shirt: '#6b46c1', shirtPattern: '#44337a', blangkon: '#322312', sarong: '#553c25' }
-  ];
-
-  const girlPalettes = [
-    { kebaya: '#dd6b20', kebayaTrim: '#9c4221', hairRibbon: '#e53e3e', jarik: '#744210' },
-    { kebaya: '#d53f8c', kebayaTrim: '#97266d', hairRibbon: '#3182ce', jarik: '#5d3714' },
-    { kebaya: '#38a169', kebayaTrim: '#22543d', hairRibbon: '#d69e2e', jarik: '#683d18' },
-    { kebaya: '#805ad5', kebayaTrim: '#553c9a', hairRibbon: '#dd6b20', jarik: '#5a3415' }
-  ];
-
-  const boyTheme = boyPalettes[colorVariant % boyPalettes.length];
-  const girlTheme = girlPalettes[colorVariant % girlPalettes.length];
+  const boyTheme = getBoyTheme(colorVariant);
+  const girlTheme = getGirlTheme(colorVariant);
 
   // Animation cycle values
   const stepCycle = Math.sin(walkFrame * (Math.PI / 3));
-  const legSwing = actionState === 'normal' ? stepCycle * 14 : 0;
+  const isWalkingAction = actionState === 'normal' || actionState === 'holding_hands';
+  const legSwing = isWalkingAction ? stepCycle * 14 : 0;
   const armSwing = actionState === 'normal' ? -stepCycle * 18 : 0;
-  const bobbing = actionState === 'normal' ? Math.abs(Math.sin(walkFrame * (Math.PI / 3))) * 3.5 : 0;
+  const bobbing = isWalkingAction ? Math.abs(Math.sin(walkFrame * (Math.PI / 3))) * 3.5 : 0;
 
   // Center vertical offset
   const cy = -height * 0.05 - bobbing;
 
   // Render by action state
-  if (actionState === 'kethek') {
+  if (actionState === 'pancer_clapping') {
+    renderPancerClapping(ctx, character, boyTheme, girlTheme, actionElapsed, width, height, cy);
+  } else if (actionState === 'pancer_stop') {
+    renderPancerStop(ctx, character, boyTheme, girlTheme, actionElapsed, width, height, cy);
+  } else if (actionState === 'pancer_instruct') {
+    renderPancerInstruct(ctx, character, boyTheme, girlTheme, actionElapsed, width, height, cy);
+  } else if (actionState === 'pancer_observe') {
+    renderPancerObserve(ctx, character, boyTheme, girlTheme, actionElapsed, width, height, cy);
+  } else if (actionState === 'pancer_celebrate') {
+    renderPancerCelebrate(ctx, character, boyTheme, girlTheme, actionElapsed, width, height, cy);
+  } else if (actionState === 'gagak') {
+    renderGagakPose(ctx, character, boyTheme, girlTheme, actionElapsed, width, height, cy);
+  } else if (actionState === 'kethek') {
     renderKethekPose(ctx, character, boyTheme, girlTheme, actionElapsed, width, height, cy);
   } else if (actionState === 'gagang') {
     renderGagangPose(ctx, character, boyTheme, girlTheme, actionElapsed, width, height, cy);
@@ -113,7 +159,7 @@ export function drawVectorCharacter(
   } else if (actionState === 'wrong') {
     renderWrongReaction(ctx, character, boyTheme, girlTheme, actionElapsed, width, height, cy);
   } else {
-    // Normal walk / stand pose
+    // Normal walk / stand pose / holding hands
     renderStandardBody(
       ctx,
       character,
@@ -125,24 +171,37 @@ export function drawVectorCharacter(
       width,
       height,
       cy,
-      isPancer
+      isPancer,
+      actionState
     );
   }
 
-  // Pancer crown/badge
+  // Pancer crown/badge (aligned with head bobbing/swaying)
   if (isPancer) {
     ctx.save();
+    let crownCy = cy;
+    if (actionState === 'pancer_celebrate') {
+      crownCy = cy - Math.abs(Math.sin(actionElapsed * 6.5)) * 4.5;
+    } else if (actionState === 'pancer_clapping') {
+      crownCy = cy - Math.abs(Math.sin(actionElapsed * (104 / 60) * Math.PI * 2)) * 2.5;
+    } else if (actionState === 'pancer_instruct') {
+      crownCy = cy + Math.sin(actionElapsed * 5) * 2.5;
+    } else if (actionState === 'pancer_observe') {
+      const nodCycle = (actionElapsed % 1.8) / 1.8;
+      const nod = nodCycle < 0.25 ? Math.sin(nodCycle * 4 * Math.PI) * 2.5 : 0;
+      crownCy = cy - Math.sin(actionElapsed * 2.0) * 1.5 + nod;
+    }
     ctx.fillStyle = '#ffd166';
     ctx.strokeStyle = '#8d4a0a';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(-12, cy - height * 0.52);
-    ctx.lineTo(-6, cy - height * 0.44);
-    ctx.lineTo(0, cy - height * 0.54);
-    ctx.lineTo(6, cy - height * 0.44);
-    ctx.lineTo(12, cy - height * 0.52);
-    ctx.lineTo(8, cy - height * 0.42);
-    ctx.lineTo(-8, cy - height * 0.42);
+    ctx.moveTo(-12, crownCy - height * 0.52);
+    ctx.lineTo(-6, crownCy - height * 0.44);
+    ctx.lineTo(0, crownCy - height * 0.54);
+    ctx.lineTo(6, crownCy - height * 0.44);
+    ctx.lineTo(12, crownCy - height * 0.52);
+    ctx.lineTo(8, crownCy - height * 0.42);
+    ctx.lineTo(-8, crownCy - height * 0.42);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
@@ -166,7 +225,8 @@ function renderStandardBody(
   w: number,
   h: number,
   cy: number,
-  isPancer: boolean
+  isPancer: boolean,
+  actionState: string = 'normal'
 ) {
   const isBack = directionRow === 3;
   const isProfile = directionRow === 1 || directionRow === 2;
@@ -242,39 +302,45 @@ function renderStandardBody(
   ctx.restore();
 
   // ARMS
-  ctx.save();
-  ctx.fillStyle = character === 'boy' ? boyTheme.shirt : girlTheme.kebaya;
-  ctx.strokeStyle = '#3e200c';
-  ctx.lineWidth = 1.5;
+  if (actionState === 'holding_hands') {
+    // When holding hands in Jamuran circle, arms are drawn connected to neighbors via drawHandHoldingRing.
+    // Torso rounded corners cleanly cap the shoulder roots without detached floating sockets.
+  } else {
+    // Standard swinging arms
+    ctx.save();
+    ctx.fillStyle = character === 'boy' ? boyTheme.shirt : girlTheme.kebaya;
+    ctx.strokeStyle = '#3e200c';
+    ctx.lineWidth = 1.5;
 
-  // Left arm
-  ctx.save();
-  ctx.translate(-w * 0.24, cy - h * 0.08);
-  ctx.rotate((armSwing * Math.PI) / 180);
-  ctx.beginPath();
-  ctx.roundRect(-w * 0.06, 0, w * 0.12, h * 0.22, 5);
-  ctx.fill();
-  // Hand
-  ctx.fillStyle = '#f6d19e';
-  ctx.beginPath();
-  ctx.arc(0, h * 0.22, 4.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+    // Left arm
+    ctx.save();
+    ctx.translate(-w * 0.24, cy - h * 0.08);
+    ctx.rotate((armSwing * Math.PI) / 180);
+    ctx.beginPath();
+    ctx.roundRect(-w * 0.06, 0, w * 0.12, h * 0.22, 5);
+    ctx.fill();
+    // Hand
+    ctx.fillStyle = '#f6d19e';
+    ctx.beginPath();
+    ctx.arc(0, h * 0.22, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
 
-  // Right arm
-  ctx.save();
-  ctx.translate(w * 0.24, cy - h * 0.08);
-  ctx.rotate((-armSwing * Math.PI) / 180);
-  ctx.beginPath();
-  ctx.roundRect(-w * 0.06, 0, w * 0.12, h * 0.22, 5);
-  ctx.fill();
-  // Hand
-  ctx.fillStyle = '#f6d19e';
-  ctx.beginPath();
-  ctx.arc(0, h * 0.22, 4.5, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
-  ctx.restore();
+    // Right arm
+    ctx.save();
+    ctx.translate(w * 0.24, cy - h * 0.08);
+    ctx.rotate((-armSwing * Math.PI) / 180);
+    ctx.beginPath();
+    ctx.roundRect(-w * 0.06, 0, w * 0.12, h * 0.22, 5);
+    ctx.fill();
+    // Hand
+    ctx.fillStyle = '#f6d19e';
+    ctx.beginPath();
+    ctx.arc(0, h * 0.22, 4.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.restore();
+  }
 
   // HEAD & HAIR / BLANGKON
   renderHead(ctx, character, boyTheme, girlTheme, directionRow, w, h, cy);
@@ -428,6 +494,159 @@ function renderHead(
     ctx.arc(0, headY + 3, 5, 0.15 * Math.PI, 0.85 * Math.PI);
     ctx.stroke();
   }
+
+  ctx.restore();
+}
+
+/**
+ * JAMUR GAGAK: Flapping wings like a crow ("gaok-gaok") with rhythmic flutter
+ */
+function renderGagakPose(
+  ctx: CanvasRenderingContext2D,
+  character: CharacterType,
+  boyTheme: any,
+  girlTheme: any,
+  elapsed: number,
+  w: number,
+  h: number,
+  cy: number
+) {
+  // Energetic flapping rhythm (~1.6 flaps per second)
+  const flapCycle = Math.sin(elapsed * 10);
+  const flapAngleDeg = flapCycle * 35; // -35 to +35 degrees
+  const bodyBob = Math.abs(flapCycle) * 3.5; // Up and down bobbing
+  const adjustedCy = cy - bodyBob * 0.5;
+
+  ctx.save();
+
+  // LEGS / SANDALS (firm standing stance)
+  ctx.fillStyle = '#2d1b10';
+  ctx.beginPath();
+  ctx.roundRect(-w * 0.18, adjustedCy + h * 0.28, w * 0.13, h * 0.18, 4);
+  ctx.roundRect(w * 0.05, adjustedCy + h * 0.28, w * 0.13, h * 0.18, 4);
+  ctx.fill();
+
+  // SARONG / JARIK
+  ctx.fillStyle = character === 'boy' ? boyTheme.sarong : girlTheme.jarik;
+  ctx.strokeStyle = '#3e200c';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.22, adjustedCy + h * 0.08);
+  ctx.lineTo(w * 0.22, adjustedCy + h * 0.08);
+  ctx.lineTo(w * 0.2, adjustedCy + h * 0.32);
+  ctx.lineTo(-w * 0.2, adjustedCy + h * 0.32);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Batik stripe accents
+  ctx.strokeStyle = 'rgba(255, 230, 180, 0.4)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.12, adjustedCy + h * 0.12);
+  ctx.lineTo(-w * 0.09, adjustedCy + h * 0.3);
+  ctx.moveTo(w * 0.12, adjustedCy + h * 0.12);
+  ctx.lineTo(w * 0.09, adjustedCy + h * 0.3);
+  ctx.stroke();
+
+  // TORSO / SHIRT / KEBAYA
+  ctx.fillStyle = character === 'boy' ? boyTheme.shirt : girlTheme.kebaya;
+  ctx.strokeStyle = character === 'boy' ? boyTheme.shirtPattern : girlTheme.kebayaTrim;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(-w * 0.24, adjustedCy - h * 0.12, w * 0.48, h * 0.24, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Collar & Button/Brooch
+  ctx.strokeStyle = '#fff1c7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.08, adjustedCy - h * 0.12);
+  ctx.lineTo(0, adjustedCy - h * 0.04);
+  ctx.lineTo(w * 0.08, adjustedCy - h * 0.12);
+  ctx.stroke();
+
+  // Button
+  ctx.fillStyle = '#ffd166';
+  ctx.beginPath();
+  ctx.arc(0, adjustedCy - h * 0.02, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  // WING FLAPPING ARMS
+  const shoulderY = adjustedCy - h * 0.08;
+
+  // LEFT WING (ARM)
+  ctx.save();
+  ctx.translate(-w * 0.22, shoulderY);
+  // Negative angle raises arm up, positive angle lowers arm down
+  const leftFlapRad = (-flapAngleDeg - 15) * (Math.PI / 180);
+  ctx.rotate(leftFlapRad);
+
+  // Upper sleeve (Wing base)
+  ctx.fillStyle = character === 'boy' ? boyTheme.shirt : girlTheme.kebaya;
+  ctx.strokeStyle = '#3e200c';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(-w * 0.07, 0, w * 0.14, h * 0.22, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Forearm & Wingtip (flapping with secondary bend)
+  ctx.save();
+  ctx.translate(0, h * 0.18);
+  const leftWingtipRad = (-25 + Math.sin(elapsed * 10 - 0.4) * 20) * (Math.PI / 180);
+  ctx.rotate(leftWingtipRad);
+
+  // Wing feathers / Hand
+  ctx.fillStyle = '#f6d19e';
+  ctx.beginPath();
+  ctx.ellipse(-w * 0.04, h * 0.06, 7, 10, -Math.PI / 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.restore();
+
+  // RIGHT WING (ARM)
+  ctx.save();
+  ctx.translate(w * 0.22, shoulderY);
+  const rightFlapRad = (flapAngleDeg + 15) * (Math.PI / 180);
+  ctx.rotate(rightFlapRad);
+
+  // Upper sleeve (Wing base)
+  ctx.fillStyle = character === 'boy' ? boyTheme.shirt : girlTheme.kebaya;
+  ctx.strokeStyle = '#3e200c';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(-w * 0.07, 0, w * 0.14, h * 0.22, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Forearm & Wingtip (flapping with secondary bend)
+  ctx.save();
+  ctx.translate(0, h * 0.18);
+  const rightWingtipRad = (25 - Math.sin(elapsed * 10 - 0.4) * 20) * (Math.PI / 180);
+  ctx.rotate(rightWingtipRad);
+
+  // Wing feathers / Hand
+  ctx.fillStyle = '#f6d19e';
+  ctx.beginPath();
+  ctx.ellipse(w * 0.04, h * 0.06, 7, 10, Math.PI / 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.restore();
+
+  // HEAD & HAIR / BLANGKON
+  renderHead(ctx, character, boyTheme, girlTheme, 0, w, h, adjustedCy);
+
+  // Speech / Sound indicator above head
+  ctx.fillStyle = '#ffd166';
+  ctx.font = 'bold 12px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText("Gaok-gaok! 🦅", 0, adjustedCy - h * 0.52);
 
   ctx.restore();
 }
@@ -779,3 +998,950 @@ function renderWrongReaction(
 
   ctx.restore();
 }
+
+/**
+ * PANCER ANIMATION 1: RHYTHMIC CLAPPING (MUSIC_PLAYING)
+ * Pancer claps enthusiastically in sync with the authentic 104 BPM Jamuran song cadence,
+ * swaying body left-to-right with head bobbing and warm cheering smile.
+ */
+function renderPancerClapping(
+  ctx: CanvasRenderingContext2D,
+  character: CharacterType,
+  boyTheme: any,
+  girlTheme: any,
+  elapsed: number,
+  w: number,
+  h: number,
+  baseCy: number
+) {
+  // Synchronized to 104 BPM (~1.733 beats per second)
+  const beat = elapsed * (104 / 60);
+  const cycle = beat * Math.PI * 2;
+  const clapCycle = Math.sin(cycle);
+  const swayAngle = Math.sin(beat * Math.PI) * 0.045; // ~2.5 deg gentle body rocking
+  const bobbing = Math.abs(Math.sin(cycle)) * 2.5;
+
+  const cy = baseCy - bobbing;
+  const sleeveColor = character === 'boy' ? boyTheme.shirt : girlTheme.kebaya;
+  const sleevePattern = character === 'boy' ? boyTheme.shirtPattern : girlTheme.kebayaTrim;
+
+  ctx.save();
+  ctx.rotate(swayAngle);
+
+  // LEGS / SHOES
+  ctx.save();
+  ctx.fillStyle = '#2d1b10';
+  ctx.beginPath();
+  ctx.roundRect(-w * 0.18, cy + h * 0.28, w * 0.13, h * 0.18, 4);
+  ctx.roundRect(w * 0.05, cy + h * 0.28, w * 0.13, h * 0.18, 4);
+  ctx.fill();
+  ctx.restore();
+
+  // SARONG / JARIK
+  ctx.save();
+  ctx.fillStyle = character === 'boy' ? boyTheme.sarong : girlTheme.jarik;
+  ctx.strokeStyle = '#3e200c';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.22, cy + h * 0.08);
+  ctx.lineTo(w * 0.22, cy + h * 0.08);
+  ctx.lineTo(w * 0.2, cy + h * 0.32);
+  ctx.lineTo(-w * 0.2, cy + h * 0.32);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Batik stripe accents
+  ctx.strokeStyle = 'rgba(255, 230, 180, 0.4)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.14, cy + h * 0.12);
+  ctx.lineTo(-w * 0.1, cy + h * 0.3);
+  ctx.moveTo(0, cy + h * 0.1);
+  ctx.lineTo(0, cy + h * 0.31);
+  ctx.moveTo(w * 0.14, cy + h * 0.12);
+  ctx.lineTo(w * 0.1, cy + h * 0.3);
+  ctx.stroke();
+  ctx.restore();
+
+  // TORSO / SHIRT / KEBAYA
+  ctx.save();
+  ctx.fillStyle = sleeveColor;
+  ctx.strokeStyle = sleevePattern;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(-w * 0.24, cy - h * 0.12, w * 0.48, h * 0.24, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Collar & Buttons
+  ctx.strokeStyle = '#fff1c7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.08, cy - h * 0.12);
+  ctx.lineTo(0, cy - h * 0.04);
+  ctx.lineTo(w * 0.08, cy - h * 0.12);
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffd166';
+  ctx.beginPath();
+  ctx.arc(0, cy - h * 0.02, 3, 0, Math.PI * 2);
+  ctx.arc(0, cy + h * 0.04, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // CLAPPING ARMS & HANDS (Solid cartoon limbs)
+  const isClappingMoment = clapCycle > 0.1;
+  const clapOpenDist = isClappingMoment ? 0 : Math.abs(clapCycle) * (w * 0.10);
+
+  const lShoulderX = -w * 0.22;
+  const lShoulderY = cy - h * 0.07;
+  const lHandX = -clapOpenDist - 2;
+  const lHandY = cy - h * 0.02;
+
+  const rShoulderX = w * 0.22;
+  const rShoulderY = cy - h * 0.07;
+  const rHandX = clapOpenDist + 2;
+  const rHandY = cy - h * 0.02;
+
+  const drawClapArm = (sx: number, sy: number, hx: number, hy: number, isRight: boolean) => {
+    const elbowX = sx + (hx - sx) * 0.5 + (isRight ? 7 : -7);
+    const elbowY = sy + (hy - sy) * 0.5 + 5;
+
+    // Sleeve
+    ctx.save();
+    ctx.fillStyle = sleeveColor;
+    ctx.strokeStyle = '#3e200c';
+    ctx.lineWidth = 2.2;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(sx + (isRight ? -4 : 4), sy - 6);
+    ctx.quadraticCurveTo(sx + (isRight ? 5 : -5), sy - 7, elbowX + (isRight ? 4 : -4), elbowY - 2);
+    ctx.lineTo(elbowX + (isRight ? -4 : 4), elbowY + 4);
+    ctx.lineTo(sx + (isRight ? -4 : 4), sy + 6);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Sleeve trim
+    ctx.strokeStyle = sleevePattern;
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(elbowX + (isRight ? 4 : -4), elbowY - 2);
+    ctx.lineTo(elbowX + (isRight ? -4 : 4), elbowY + 4);
+    ctx.stroke();
+    ctx.restore();
+
+    // Forearm
+    ctx.save();
+    ctx.fillStyle = '#f6d19e';
+    ctx.strokeStyle = '#3e200c';
+    ctx.lineWidth = 1.8;
+    ctx.beginPath();
+    ctx.moveTo(elbowX, elbowY);
+    ctx.lineTo(hx, hy);
+    ctx.stroke();
+
+    // Hand palm
+    ctx.beginPath();
+    ctx.ellipse(hx, hy, 5.5, 4.5, isRight ? -0.2 : 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  drawClapArm(lShoulderX, lShoulderY, lHandX, lHandY, false);
+  drawClapArm(rShoulderX, rShoulderY, rHandX, rHandY, true);
+
+  // Tiny golden sound-wave sparkles when hands hit at the clap peak
+  if (clapCycle > 0.75) {
+    ctx.save();
+    ctx.strokeStyle = '#ffd166';
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    ctx.arc(0, cy - h * 0.02, 10, -Math.PI * 0.65, -Math.PI * 0.35);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(0, cy - h * 0.02, 10, Math.PI * 0.35, Math.PI * 0.65);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // HEAD
+  renderHead(ctx, character, boyTheme, girlTheme, 0, w, h, cy);
+
+  ctx.restore();
+}
+
+/**
+ * PANCER ANIMATION 2: SONG HALT / STOP GESTURE (END OF SONG / EARLY JAMUR_COMMAND)
+ * Pancer stops clapping, raises right hand high in authoritative yet warm "Mandheg! / Stop!" signal,
+ * left hand on hip, looking out at the circle of players.
+ */
+function renderPancerStop(
+  ctx: CanvasRenderingContext2D,
+  character: CharacterType,
+  boyTheme: any,
+  girlTheme: any,
+  elapsed: number,
+  w: number,
+  h: number,
+  baseCy: number
+) {
+  const cy = baseCy;
+  const sleeveColor = character === 'boy' ? boyTheme.shirt : girlTheme.kebaya;
+  const sleevePattern = character === 'boy' ? boyTheme.shirtPattern : girlTheme.kebayaTrim;
+
+  ctx.save();
+
+  // LEGS / SHOES
+  ctx.save();
+  ctx.fillStyle = '#2d1b10';
+  ctx.beginPath();
+  ctx.roundRect(-w * 0.18, cy + h * 0.28, w * 0.13, h * 0.18, 4);
+  ctx.roundRect(w * 0.05, cy + h * 0.28, w * 0.13, h * 0.18, 4);
+  ctx.fill();
+  ctx.restore();
+
+  // SARONG
+  ctx.save();
+  ctx.fillStyle = character === 'boy' ? boyTheme.sarong : girlTheme.jarik;
+  ctx.strokeStyle = '#3e200c';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.22, cy + h * 0.08);
+  ctx.lineTo(w * 0.22, cy + h * 0.08);
+  ctx.lineTo(w * 0.2, cy + h * 0.32);
+  ctx.lineTo(-w * 0.2, cy + h * 0.32);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // TORSO
+  ctx.save();
+  ctx.fillStyle = sleeveColor;
+  ctx.strokeStyle = sleevePattern;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(-w * 0.24, cy - h * 0.12, w * 0.48, h * 0.24, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Collar & Buttons
+  ctx.strokeStyle = '#fff1c7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.08, cy - h * 0.12);
+  ctx.lineTo(0, cy - h * 0.04);
+  ctx.lineTo(w * 0.08, cy - h * 0.12);
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffd166';
+  ctx.beginPath();
+  ctx.arc(0, cy - h * 0.02, 3, 0, Math.PI * 2);
+  ctx.arc(0, cy + h * 0.04, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // LEFT ARM (Hand on hip / akimbo)
+  ctx.save();
+  ctx.fillStyle = sleeveColor;
+  ctx.strokeStyle = '#3e200c';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.22, cy - h * 0.07);
+  ctx.lineTo(-w * 0.32, cy + h * 0.02);
+  ctx.lineTo(-w * 0.22, cy + h * 0.06);
+  ctx.stroke();
+  // Hand on waist
+  ctx.fillStyle = '#f6d19e';
+  ctx.beginPath();
+  ctx.arc(-w * 0.21, cy + h * 0.06, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // RIGHT ARM (Raised high in "Mandheg! / Stop!" signal)
+  ctx.save();
+  const rShoulderX = w * 0.22;
+  const rShoulderY = cy - h * 0.08;
+  const elbowX = w * 0.32;
+  const elbowY = cy - h * 0.22;
+  const wristX = w * 0.36;
+  const wristY = cy - h * 0.38;
+
+  // Upper sleeve
+  ctx.fillStyle = sleeveColor;
+  ctx.strokeStyle = '#3e200c';
+  ctx.lineWidth = 2.2;
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(rShoulderX - 4, rShoulderY);
+  ctx.lineTo(elbowX - 4, elbowY);
+  ctx.lineTo(elbowX + 5, elbowY);
+  ctx.lineTo(rShoulderX + 5, rShoulderY);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Sleeve cuff
+  ctx.strokeStyle = sleevePattern;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(elbowX - 4, elbowY);
+  ctx.lineTo(elbowX + 5, elbowY);
+  ctx.stroke();
+
+  // Forearm
+  ctx.fillStyle = '#f6d19e';
+  ctx.strokeStyle = '#3e200c';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(elbowX - 3, elbowY);
+  ctx.lineTo(wristX - 3, wristY);
+  ctx.lineTo(wristX + 4, wristY);
+  ctx.lineTo(elbowX + 4, elbowY);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Open "Stop" Hand (Palm facing out to players)
+  ctx.beginPath();
+  ctx.ellipse(wristX, wristY - 6, 7, 9, 0.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Finger separation detail lines
+  ctx.strokeStyle = '#3e200c';
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(wristX - 2, wristY - 14);
+  ctx.lineTo(wristX - 2, wristY - 7);
+  ctx.moveTo(wristX + 1.5, wristY - 14);
+  ctx.lineTo(wristX + 1.5, wristY - 7);
+  ctx.stroke();
+  ctx.restore();
+
+  // HEAD
+  renderHead(ctx, character, boyTheme, girlTheme, 0, w, h, cy);
+
+  ctx.restore();
+}
+
+/**
+ * PANCER ANIMATION 3: DELIVERING JAMURAN COMMAND (JAMUR_COMMAND INSTRUCTION)
+ * Pancer gestures dynamically with hand pointing toward circle participants ("Jamur Gagak!"),
+ * nodding enthusiastically with vocal cadence.
+ */
+function renderPancerInstruct(
+  ctx: CanvasRenderingContext2D,
+  character: CharacterType,
+  boyTheme: any,
+  girlTheme: any,
+  elapsed: number,
+  w: number,
+  h: number,
+  baseCy: number
+) {
+  // Energetic head nod with instruction cadence
+  const nod = Math.sin(elapsed * 5) * 2.5;
+  const cy = baseCy;
+  const sleeveColor = character === 'boy' ? boyTheme.shirt : girlTheme.kebaya;
+  const sleevePattern = character === 'boy' ? boyTheme.shirtPattern : girlTheme.kebayaTrim;
+
+  ctx.save();
+
+  // LEGS / SHOES
+  ctx.save();
+  ctx.fillStyle = '#2d1b10';
+  ctx.beginPath();
+  ctx.roundRect(-w * 0.18, cy + h * 0.28, w * 0.13, h * 0.18, 4);
+  ctx.roundRect(w * 0.05, cy + h * 0.28, w * 0.13, h * 0.18, 4);
+  ctx.fill();
+  ctx.restore();
+
+  // SARONG
+  ctx.save();
+  ctx.fillStyle = character === 'boy' ? boyTheme.sarong : girlTheme.jarik;
+  ctx.strokeStyle = '#3e200c';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.22, cy + h * 0.08);
+  ctx.lineTo(w * 0.22, cy + h * 0.08);
+  ctx.lineTo(w * 0.2, cy + h * 0.32);
+  ctx.lineTo(-w * 0.2, cy + h * 0.32);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // TORSO
+  ctx.save();
+  ctx.fillStyle = sleeveColor;
+  ctx.strokeStyle = sleevePattern;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(-w * 0.24, cy - h * 0.12, w * 0.48, h * 0.24, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Collar & Buttons
+  ctx.strokeStyle = '#fff1c7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.08, cy - h * 0.12);
+  ctx.lineTo(0, cy - h * 0.04);
+  ctx.lineTo(w * 0.08, cy - h * 0.12);
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffd166';
+  ctx.beginPath();
+  ctx.arc(0, cy - h * 0.02, 3, 0, Math.PI * 2);
+  ctx.arc(0, cy + h * 0.04, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // LEFT ARM (Gesturing outwards)
+  ctx.save();
+  ctx.strokeStyle = '#3e200c';
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.22, cy - h * 0.07);
+  ctx.lineTo(-w * 0.34, cy - h * 0.02);
+  ctx.stroke();
+  ctx.fillStyle = '#f6d19e';
+  ctx.beginPath();
+  ctx.ellipse(-w * 0.36, cy - h * 0.01, 5, 4.5, -0.3, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // RIGHT ARM (Pointing forward towards players)
+  ctx.save();
+  const pointPulse = Math.sin(elapsed * 6) * 3;
+  const rShoulderX = w * 0.22;
+  const rShoulderY = cy - h * 0.08;
+  const elbowX = w * 0.30;
+  const elbowY = cy - h * 0.08;
+  const wristX = w * 0.38 + pointPulse;
+  const wristY = cy - h * 0.08;
+
+  // Upper sleeve
+  ctx.fillStyle = sleeveColor;
+  ctx.strokeStyle = '#3e200c';
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.roundRect(rShoulderX - 2, rShoulderY - 6, w * 0.12, 12, 4);
+  ctx.fill();
+  ctx.stroke();
+
+  // Forearm & Pointing Hand
+  ctx.fillStyle = '#f6d19e';
+  ctx.strokeStyle = '#3e200c';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.roundRect(elbowX + 4, elbowY - 4.5, w * 0.10, 9, 3);
+  ctx.fill();
+  ctx.stroke();
+
+  // Pointing finger
+  ctx.beginPath();
+  ctx.moveTo(wristX, wristY - 2);
+  ctx.lineTo(wristX + 8, wristY - 2);
+  ctx.lineTo(wristX + 8, wristY + 2);
+  ctx.lineTo(wristX, wristY + 2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // HEAD (Affirmative nod during command call)
+  renderHead(ctx, character, boyTheme, girlTheme, 0, w, h, cy + nod);
+
+  ctx.restore();
+}
+
+/**
+ * PANCER ANIMATION 4: OBSERVING PLAYERS (JAMUR_ACTION)
+ * Pancer observes the players performing with hands firmly on hips (akimbo stance),
+ * scanning slowly side-to-side with periodic approving nods and encouraging smile.
+ */
+function renderPancerObserve(
+  ctx: CanvasRenderingContext2D,
+  character: CharacterType,
+  boyTheme: any,
+  girlTheme: any,
+  elapsed: number,
+  w: number,
+  h: number,
+  baseCy: number
+) {
+  // Gentle breathing motion
+  const breath = Math.sin(elapsed * 2.0) * 1.5;
+  const cy = baseCy - breath;
+  const scanAngle = Math.sin(elapsed * 1.2) * 0.06; // scanning circle of players
+  // Approving nod every 1.8s
+  const nodCycle = (elapsed % 1.8) / 1.8;
+  const nod = nodCycle < 0.25 ? Math.sin(nodCycle * 4 * Math.PI) * 2.5 : 0;
+
+  const sleeveColor = character === 'boy' ? boyTheme.shirt : girlTheme.kebaya;
+  const sleevePattern = character === 'boy' ? boyTheme.shirtPattern : girlTheme.kebayaTrim;
+
+  ctx.save();
+
+  // LEGS / SHOES
+  ctx.save();
+  ctx.fillStyle = '#2d1b10';
+  ctx.beginPath();
+  ctx.roundRect(-w * 0.18, cy + h * 0.28, w * 0.13, h * 0.18, 4);
+  ctx.roundRect(w * 0.05, cy + h * 0.28, w * 0.13, h * 0.18, 4);
+  ctx.fill();
+  ctx.restore();
+
+  // SARONG
+  ctx.save();
+  ctx.fillStyle = character === 'boy' ? boyTheme.sarong : girlTheme.jarik;
+  ctx.strokeStyle = '#3e200c';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.22, cy + h * 0.08);
+  ctx.lineTo(w * 0.22, cy + h * 0.08);
+  ctx.lineTo(w * 0.2, cy + h * 0.32);
+  ctx.lineTo(-w * 0.2, cy + h * 0.32);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // TORSO
+  ctx.save();
+  ctx.fillStyle = sleeveColor;
+  ctx.strokeStyle = sleevePattern;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(-w * 0.24, cy - h * 0.12, w * 0.48, h * 0.24, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Collar & Buttons
+  ctx.strokeStyle = '#fff1c7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.08, cy - h * 0.12);
+  ctx.lineTo(0, cy - h * 0.04);
+  ctx.lineTo(w * 0.08, cy - h * 0.12);
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffd166';
+  ctx.beginPath();
+  ctx.arc(0, cy - h * 0.02, 3, 0, Math.PI * 2);
+  ctx.arc(0, cy + h * 0.04, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // BOTH ARMS ON HIPS (Leader Akimbo Pose)
+  // Left arm on hip
+  ctx.save();
+  ctx.fillStyle = sleeveColor;
+  ctx.strokeStyle = '#3e200c';
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.22, cy - h * 0.07);
+  ctx.lineTo(-w * 0.32, cy + h * 0.01);
+  ctx.lineTo(-w * 0.22, cy + h * 0.05);
+  ctx.stroke();
+  ctx.fillStyle = '#f6d19e';
+  ctx.beginPath();
+  ctx.arc(-w * 0.21, cy + h * 0.05, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Right arm on hip
+  ctx.fillStyle = sleeveColor;
+  ctx.beginPath();
+  ctx.moveTo(w * 0.22, cy - h * 0.07);
+  ctx.lineTo(w * 0.32, cy + h * 0.01);
+  ctx.lineTo(w * 0.22, cy + h * 0.05);
+  ctx.stroke();
+  ctx.fillStyle = '#f6d19e';
+  ctx.beginPath();
+  ctx.arc(w * 0.21, cy + h * 0.05, 5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // HEAD (Scanning left and right, with approving nod)
+  ctx.save();
+  ctx.translate(0, cy - h * 0.26 + nod);
+  ctx.rotate(scanAngle);
+  renderHead(ctx, character, boyTheme, girlTheme, 0, w, h, h * 0.26);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+/**
+ * PANCER ANIMATION 5: JOYOUS CELEBRATION (FEEDBACK_CORRECT)
+ * Pancer celebrates the correct answer with cheerful hops, rapid applause, and golden sparkles!
+ */
+function renderPancerCelebrate(
+  ctx: CanvasRenderingContext2D,
+  character: CharacterType,
+  boyTheme: any,
+  girlTheme: any,
+  elapsed: number,
+  w: number,
+  h: number,
+  baseCy: number
+) {
+  // Joyous hop and fast energetic clapping
+  const hop = Math.abs(Math.sin(elapsed * 6.5)) * 4.5;
+  const cy = baseCy - hop;
+  const clapCycle = Math.sin(elapsed * 13);
+  const clapDist = clapCycle > 0.1 ? 0 : Math.abs(clapCycle) * (w * 0.10);
+
+  const sleeveColor = character === 'boy' ? boyTheme.shirt : girlTheme.kebaya;
+  const sleevePattern = character === 'boy' ? boyTheme.shirtPattern : girlTheme.kebayaTrim;
+
+  ctx.save();
+
+  // LEGS / SHOES
+  ctx.save();
+  ctx.fillStyle = '#2d1b10';
+  ctx.beginPath();
+  ctx.roundRect(-w * 0.18, cy + h * 0.28, w * 0.13, h * 0.18, 4);
+  ctx.roundRect(w * 0.05, cy + h * 0.28, w * 0.13, h * 0.18, 4);
+  ctx.fill();
+  ctx.restore();
+
+  // SARONG
+  ctx.save();
+  ctx.fillStyle = character === 'boy' ? boyTheme.sarong : girlTheme.jarik;
+  ctx.strokeStyle = '#3e200c';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.22, cy + h * 0.08);
+  ctx.lineTo(w * 0.22, cy + h * 0.08);
+  ctx.lineTo(w * 0.2, cy + h * 0.32);
+  ctx.lineTo(-w * 0.2, cy + h * 0.32);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // TORSO
+  ctx.save();
+  ctx.fillStyle = sleeveColor;
+  ctx.strokeStyle = sleevePattern;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(-w * 0.24, cy - h * 0.12, w * 0.48, h * 0.24, 6);
+  ctx.fill();
+  ctx.stroke();
+
+  // Collar & Buttons
+  ctx.strokeStyle = '#fff1c7';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-w * 0.08, cy - h * 0.12);
+  ctx.lineTo(0, cy - h * 0.04);
+  ctx.lineTo(w * 0.08, cy - h * 0.12);
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffd166';
+  ctx.beginPath();
+  ctx.arc(0, cy - h * 0.02, 3, 0, Math.PI * 2);
+  ctx.arc(0, cy + h * 0.04, 2.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
+  // FAST JOYOUS CLAPPING HANDS
+  const lShoulderX = -w * 0.22;
+  const lShoulderY = cy - h * 0.07;
+  const lHandX = -clapDist - 2;
+  const lHandY = cy - h * 0.02;
+
+  const rShoulderX = w * 0.22;
+  const rShoulderY = cy - h * 0.07;
+  const rHandX = clapDist + 2;
+  const rHandY = cy - h * 0.02;
+
+  // Left arm
+  ctx.save();
+  ctx.fillStyle = sleeveColor;
+  ctx.strokeStyle = '#3e200c';
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.moveTo(lShoulderX, lShoulderY);
+  ctx.lineTo(lHandX, lHandY);
+  ctx.stroke();
+  ctx.fillStyle = '#f6d19e';
+  ctx.beginPath();
+  ctx.arc(lHandX, lHandY, 5.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+
+  // Right arm
+  ctx.beginPath();
+  ctx.moveTo(rShoulderX, rShoulderY);
+  ctx.lineTo(rHandX, rHandY);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(rHandX, rHandY, 5.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // Golden celebration stars around Pancer
+  for (let i = 0; i < 4; i++) {
+    const angle = (i * Math.PI) / 2 + elapsed * 3;
+    const dist = w * 0.55;
+    const sx = Math.cos(angle) * dist;
+    const sy = cy - h * 0.2 + Math.sin(angle) * dist * 0.5;
+
+    ctx.fillStyle = i % 2 === 0 ? '#ffd166' : '#84e1bc';
+    ctx.beginPath();
+    ctx.arc(sx, sy, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // HEAD
+  renderHead(ctx, character, boyTheme, girlTheme, 0, w, h, cy);
+
+  ctx.restore();
+}
+
+/**
+ * Circle Participant structure for hand-holding ring rendering
+ */
+export interface HandHoldingParticipant {
+  x: number;
+  y: number;
+  character: CharacterType;
+  colorVariant: number;
+}
+
+/**
+ * Draws continuous, authentic hand-holding connections between adjacent participants in the Jamuran circle.
+ * Connects Participant 0 -> 1 -> 2 -> ... -> N-1 -> 0 in a closed, unified ring.
+ * Draws custom matching sleeves, skin-toned forearms, and clasped interlocking hands.
+ */
+export function drawHandHoldingRing(
+  ctx: CanvasRenderingContext2D,
+  participants: HandHoldingParticipant[],
+  charW: number,
+  charH: number,
+  walkFrame: number = 0
+) {
+  if (participants.length < 2) return;
+
+  const count = participants.length;
+
+  // Compute ring center from participant centroid
+  const centerX = participants.reduce((acc, p) => acc + p.x, 0) / count;
+  const centerY = participants.reduce((acc, p) => acc + p.y, 0) / count;
+
+  // Natural cadence sway matching the 104 BPM Jamuran music rhythm
+  const sway = Math.sin((walkFrame || 0) * (Math.PI / 3)) * 2.2;
+
+  for (let i = 0; i < count; i++) {
+    const j = (i + 1) % count;
+    const pI = participants[i];
+    const pJ = participants[j];
+
+    const dx = pJ.x - pI.x;
+    const dy = pJ.y - pI.y;
+    const chordDist = Math.hypot(dx, dy);
+    if (chordDist < 10) continue;
+
+    // Unit vector along chord from i to j
+    const ux = dx / chordDist;
+    const uy = dy / chordDist;
+
+    // Midpoint between participants
+    const midX = (pI.x + pJ.x) * 0.5;
+    const midY = (pI.y + pJ.y) * 0.5;
+
+    // Vector pointing outward from circle center to chord midpoint
+    const outX = midX - centerX;
+    const outY = midY - centerY;
+    const outLen = Math.hypot(outX, outY) || 1;
+
+    // Outward unit normal
+    let nx = -uy;
+    let ny = ux;
+    if (nx * (outX / outLen) + ny * (outY / outLen) < 0) {
+      nx = -nx;
+      ny = -ny;
+    }
+
+    const themeI = getAttireTheme(pI.character, pI.colorVariant);
+    const themeJ = getAttireTheme(pJ.character, pJ.colorVariant);
+
+    // Anatomical shoulder positions on torso boundaries:
+    const shoulderBaseY = -charH * 0.08;
+    const shoulderSpread = charW * 0.20;
+
+    const sI_x = pI.x + ux * shoulderSpread;
+    const sI_y = pI.y + shoulderBaseY + uy * (charW * 0.04);
+
+    const sJ_x = pJ.x - ux * shoulderSpread;
+    const sJ_y = pJ.y + shoulderBaseY - uy * (charW * 0.04);
+
+    // Hand meeting point (clasp point)
+    // Sits in the middle, slightly arched outward along circle contour with cadence bob
+    const claspX = midX + nx * (charW * 0.06);
+    const claspY = midY + shoulderBaseY + ny * (charW * 0.06) + sway;
+
+    // Thick cartoon dimensions proportional to character scale
+    const shoulderThickness = Math.max(12, charW * 0.22); // Thick rounded cartoon sleeve (~14-16px)
+    const elbowThickness = Math.max(10, charW * 0.17);    // Chunky sleeve cuff (~11-13px)
+    const forearmThickness = Math.max(8.5, charW * 0.15); // Solid chubby forearm (~10px)
+    const wristThickness = Math.max(7, charW * 0.11);     // Wrist width (~8px)
+
+    // Helper to draw a single character's solid cartoon arm (sleeve + forearm)
+    const drawArm = (
+      startX: number,
+      startY: number,
+      theme: { shirt: string; shirtPattern: string }
+    ) => {
+      const armDx = claspX - startX;
+      const armDy = claspY - startY;
+      const armLen = Math.hypot(armDx, armDy);
+      if (armLen < 4) return;
+
+      const aUx = armDx / armLen;
+      const aUy = armDy / armLen;
+      let aPx = -aUy;
+      let aPy = aUx;
+      if (aPx * nx + aPy * ny < 0) {
+        aPx = -aPx;
+        aPy = -aPy;
+      }
+
+      // Proportional segments along the arm reach:
+      // Sleeve: 0% to 50%
+      // Forearm: 50% to 85%
+      // Clasp: 85% to 100% (interlocking hand mass at clasp)
+      const elbowX = startX + armDx * 0.50;
+      const elbowY = startY + armDy * 0.50;
+      const wristX = startX + armDx * 0.85;
+      const wristY = startY + armDy * 0.85;
+
+      // --- 1. Solid Puffy Cartoon Sleeve ---
+      ctx.save();
+      ctx.fillStyle = theme.shirt;
+      ctx.strokeStyle = '#3e200c';
+      ctx.lineWidth = 2.2;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(startX - aPx * (shoulderThickness * 0.5), startY - aPy * (shoulderThickness * 0.5));
+      // Rounded puff cap at shoulder
+      ctx.quadraticCurveTo(
+        startX - aUx * 5,
+        startY - aUy * 5,
+        startX + aPx * (shoulderThickness * 0.5),
+        startY + aPy * (shoulderThickness * 0.5)
+      );
+      // Sleeve side towards elbow
+      ctx.lineTo(elbowX + aPx * (elbowThickness * 0.5), elbowY + aPy * (elbowThickness * 0.5));
+      // Elbow cuff edge
+      ctx.lineTo(elbowX - aPx * (elbowThickness * 0.5), elbowY - aPy * (elbowThickness * 0.5));
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Sleeve cuff accent trim band
+      ctx.strokeStyle = theme.shirtPattern;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(elbowX - aPx * (elbowThickness * 0.48), elbowY - aPy * (elbowThickness * 0.48));
+      ctx.lineTo(elbowX + aPx * (elbowThickness * 0.48), elbowY + aPy * (elbowThickness * 0.48));
+      ctx.stroke();
+      ctx.restore();
+
+      // --- 2. Solid Chubby Skin Forearm ---
+      ctx.save();
+      ctx.fillStyle = '#f6d19e';
+      ctx.strokeStyle = '#3e200c';
+      ctx.lineWidth = 1.8;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+
+      ctx.beginPath();
+      ctx.moveTo(elbowX - aPx * (forearmThickness * 0.48), elbowY - aPy * (forearmThickness * 0.48));
+      ctx.lineTo(wristX - aPx * (wristThickness * 0.48), wristY - aPy * (wristThickness * 0.48));
+      ctx.lineTo(wristX + aPx * (wristThickness * 0.48), wristY + aPy * (wristThickness * 0.48));
+      ctx.lineTo(elbowX + aPx * (forearmThickness * 0.48), elbowY + aPy * (forearmThickness * 0.48));
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    };
+
+    // Draw Participant i's arm (reaching clockwise to clasp)
+    drawArm(sI_x, sI_y, themeI);
+
+    // Draw Participant j's arm (reaching counter-clockwise to clasp)
+    drawArm(sJ_x, sJ_y, themeJ);
+
+    // --- 3. Unified, Solid Interlocking Hand Clasp ---
+    // Both wrists connect into this unified hand mass with interlocking fingers and thumb
+    ctx.save();
+    ctx.translate(claspX, claspY);
+    ctx.rotate(Math.atan2(uy, ux));
+
+    // Solid clasped hands body
+    ctx.fillStyle = '#f6d19e';
+    ctx.strokeStyle = '#3e200c';
+    ctx.lineWidth = 2.0;
+    ctx.lineJoin = 'round';
+    ctx.lineCap = 'round';
+
+    ctx.beginPath();
+    // Left wrist attachment
+    ctx.moveTo(-7, -4.5);
+    // Hand i thumb contour (resting over top)
+    ctx.quadraticCurveTo(-2, -7.5, 2, -5.5);
+    // Right wrist upper attachment
+    ctx.lineTo(7, -4.5);
+    // Right hand outer palm & knuckle curve
+    ctx.quadraticCurveTo(9.5, 0, 7, 4.5);
+    // Interlocking curled fingers wrapped underneath
+    ctx.quadraticCurveTo(2, 7.5, -2, 6.5);
+    // Left hand outer knuckle curve
+    ctx.quadraticCurveTo(-9.5, 0, -7, -4.5);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Finger curl & knuckle detail lines (chibi cartoon style)
+    ctx.strokeStyle = '#3e200c';
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    // Hand i fingers wrapping around Hand j
+    ctx.moveTo(-1, -4.5);
+    ctx.quadraticCurveTo(1.5, -1, -0.5, 3.5);
+    // Hand j fingers clasped underneath
+    ctx.moveTo(1.8, -3.5);
+    ctx.quadraticCurveTo(3.8, 0, 2.2, 4);
+    // Thumb groove
+    ctx.moveTo(-3.5, -2.5);
+    ctx.quadraticCurveTo(-1.5, -4.2, 0.5, -3.8);
+    ctx.stroke();
+
+    // Subtle warm palm shadow between hands
+    ctx.strokeStyle = 'rgba(160, 80, 20, 0.35)';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.moveTo(0, -3);
+    ctx.lineTo(0.5, 3);
+    ctx.stroke();
+
+    ctx.restore();
+  }
+}
+

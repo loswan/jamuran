@@ -11,7 +11,7 @@ import {
   RoomState
 } from '../types/game';
 import { audioManager } from '../audio/gamelanAudio';
-import { drawVectorCharacter } from '../renderer/characterRenderer';
+import { drawVectorCharacter, drawHandHoldingRing } from '../renderer/characterRenderer';
 import { MATH_QUESTIONS, JAMUR_COMMANDS } from '../data/mathQuestions';
 
 import { HowToPlayModal } from './HowToPlayModal';
@@ -669,12 +669,13 @@ export const JamathGame: React.FC = () => {
         drawMenuScreen(ctx, w, h);
       } else if (st.gameState === 'MUSIC_PLAYING') {
         updateCirclePhysics(st, deltaTime, circleRadius, centerX, centerY);
-        drawCircleParticipants(ctx, st, centerX, centerY, serverRoomState, arenaH);
+        const audioTime = jamuranAudioController.getCurrentTime();
+        drawCircleParticipants(ctx, st, centerX, centerY, serverRoomState, arenaH, 'holding_hands', audioTime > 0 ? audioTime : (performance.now() / 1000));
       } else if (st.gameState === 'JAMUR_COMMAND') {
         updateCirclePositionsStatic(st, circleRadius, centerX, centerY);
-        drawCircleParticipants(ctx, st, centerX, centerY, serverRoomState, arenaH);
-
         st.commandDialogElapsed += deltaTime;
+        drawCircleParticipants(ctx, st, centerX, centerY, serverRoomState, arenaH, 'normal', st.commandDialogElapsed);
+
         drawPancerCommandDialog(ctx, w, h, st.activeCommand, st.commandDialogElapsed, isLandscape);
 
         if (st.gameMode === 'INDIVIDUAL' && st.commandDialogElapsed >= 2.0) {
@@ -709,6 +710,17 @@ export const JamathGame: React.FC = () => {
         st.gameState === 'FEEDBACK_CORRECT' ||
         st.gameState === 'FEEDBACK_WRONG'
       ) {
+        updateCirclePositionsStatic(st, circleRadius, centerX, centerY);
+        drawCircleParticipants(
+          ctx,
+          st,
+          centerX,
+          centerY,
+          serverRoomState,
+          arenaH,
+          st.gameState === 'FEEDBACK_CORRECT' ? 'correct' : 'normal',
+          st.feedbackElapsed
+        );
         drawBlurredBackgroundOverlay(ctx, w, h);
 
         if (st.gameState === 'MATH_CHALLENGE' || st.gameState === 'FEEDBACK_CORRECT' || st.gameState === 'FEEDBACK_WRONG') {
@@ -1276,15 +1288,36 @@ function drawCircleParticipants(
   const charH = Math.min(84, Math.max(52, arenaH * 0.24));
   const charW = Math.round(charH * (78 / 96));
 
-  // Connection string circle
+  const isHoldingHands = actionState === 'holding_hands';
+
+  // Soft arena dance path ring on grass
   ctx.save();
-  ctx.strokeStyle = 'rgba(255, 241, 199, 0.4)';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = 'rgba(255, 241, 199, 0.2)';
+  ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.arc(cx, cy, st.player.radius, 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
+
+  // If in Jamuran music phase, render the continuous hand-holding connections between all 7 circle participants!
+  if (isHoldingHands) {
+    const circleRingParticipants = [
+      {
+        x: st.player.x,
+        y: st.player.y,
+        character: st.playerProfile.character,
+        colorVariant: st.playerProfile.colorVariant
+      },
+      ...st.npcs.map((npc: NpcMember) => ({
+        x: npc.x,
+        y: npc.y,
+        character: npc.character,
+        colorVariant: npc.colorVariant
+      }))
+    ];
+
+    drawHandHoldingRing(ctx, circleRingParticipants, charW, charH, st.player.walkFrame);
+  }
 
   const pancerGroup =
     serverRoomState && serverRoomState.pancerGroupId
@@ -1301,7 +1334,7 @@ function drawCircleParticipants(
       directionRow: npc.directionRow,
       walkFrame: st.player.walkFrame,
       flipHorizontal: npc.flipHorizontal,
-      actionState: actionState,
+      actionState: isHoldingHands ? 'holding_hands' : actionState,
       actionElapsed: actionElapsed,
       colorVariant: npc.colorVariant
     });
@@ -1316,9 +1349,44 @@ function drawCircleParticipants(
     ctx.fillText(label, npc.x, npc.y + charH * 0.54);
   });
 
-  // Central Pancer
+  // Central Pancer (Pancer is in center and does not hold hands with the outer circle)
   const pancerChar = pancerGroup ? pancerGroup.character : st.pancer.character;
   const pancerColor = pancerGroup ? pancerGroup.colorVariant : 0;
+
+  // Determine Pancer's dynamic action state synchronized with each game phase:
+  let pancerActionState: any = 'normal';
+  let pancerElapsed: number = actionElapsed;
+
+  if (st.gameState === 'MUSIC_PLAYING') {
+    // 1. Fase Pemain Mengelilingi Pancer: Tepuk tangan ritmis 104 BPM, badan bergoyang
+    pancerActionState = 'pancer_clapping';
+    const audioTime = jamuranAudioController.getCurrentTime();
+    pancerElapsed = audioTime > 0 ? audioTime : performance.now() / 1000;
+  } else if (st.gameState === 'JAMUR_COMMAND') {
+    if (st.commandDialogElapsed < 0.8) {
+      // 2. Fase Akhir Lagu: Berhenti tepuk tangan, angkat tangan "Mandheg! / Stop!", lihat pemain
+      pancerActionState = 'pancer_stop';
+      pancerElapsed = st.commandDialogElapsed;
+    } else {
+      // 3. Fase Memberikan Instruksi Jamuran: Menunjuk & menginstruksikan perintah jamur
+      pancerActionState = 'pancer_instruct';
+      pancerElapsed = st.commandDialogElapsed - 0.8;
+    }
+  } else if (st.gameState === 'JAMUR_ACTION') {
+    // 4. Fase Aksi Pemain: Mengamati aksi pemain, tangan di pinggang (akimbo), mengangguk ramah
+    pancerActionState = 'pancer_observe';
+    pancerElapsed = st.actionElapsed;
+  } else if (st.gameState === 'FEEDBACK_CORRECT') {
+    // 5. Fase Jawaban Benar: Reaksi senang, tersenyum lebar & tepuk tangan gembira
+    pancerActionState = 'pancer_celebrate';
+    pancerElapsed = st.feedbackElapsed;
+  } else if (st.gameState === 'FEEDBACK_WRONG') {
+    pancerActionState = 'pancer_observe';
+    pancerElapsed = st.feedbackElapsed;
+  } else {
+    pancerActionState = isHoldingHands ? 'pancer_clapping' : 'pancer_observe';
+    pancerElapsed = performance.now() / 1000;
+  }
 
   drawVectorCharacter(ctx, pancerChar, {
     x: st.pancer.x,
@@ -1328,7 +1396,9 @@ function drawCircleParticipants(
     directionRow: 0,
     walkFrame: 0,
     colorVariant: pancerColor,
-    isPancer: true
+    isPancer: true,
+    actionState: pancerActionState,
+    actionElapsed: pancerElapsed
   });
 
   ctx.fillStyle = '#ffd166';
@@ -1349,7 +1419,7 @@ function drawCircleParticipants(
     directionRow: st.player.directionRow,
     walkFrame: st.player.walkFrame,
     flipHorizontal: st.player.flipHorizontal,
-    actionState: actionState,
+    actionState: isHoldingHands ? 'holding_hands' : actionState,
     actionElapsed: actionElapsed,
     colorVariant: st.playerProfile.colorVariant,
     highlightRing: true

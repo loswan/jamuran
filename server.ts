@@ -103,6 +103,14 @@ const SERVER_MATH_QUESTIONS: MathQuestion[] = [
 
 const SERVER_JAMUR_COMMANDS: JamurCommand[] = [
   {
+    id: 'gagak',
+    name: 'JAMUR GAGAK',
+    javaneseName: 'Jamur Gagak (Gaok-gaok)',
+    description: 'Mengepakkan kedua tangan seperti sayap burung gagak sambil bersuara gaok-gaok!',
+    actionInstruction: 'Kepakkan sayapmu seperti burung gagak gaok-gaok!',
+    duration: 11.6
+  },
+  {
     id: 'kethek',
     name: 'JAMUR KETHEK',
     javaneseName: 'Jamur Kethek (Kethekan)',
