@@ -10,10 +10,13 @@ import {
   ChevronRight,
   Target,
   Maximize2,
-  Minimize2
+  Minimize2,
+  Pause,
+  Play
 } from 'lucide-react';
 import { Button, Panel, Modal, Badge } from './ui';
 import { RoomState, MathQuestion } from '../types/game';
+import { playUIClick } from '../audio/uiSound';
 
 // Re-export standard UI library components for unified convenience
 export { Button, Panel, Modal, Badge };
@@ -56,12 +59,14 @@ export interface GameHeaderProps {
   score: number;
   isMuted: boolean;
   isFullscreen?: boolean;
+  isPaused?: boolean;
   currentLyric?: string;
   isSingingPhase: boolean;
   onHomeClick: () => void;
   onScoreboardToggle: () => void;
   onToggleMute: () => void;
   onToggleFullscreen?: () => void;
+  onTogglePause?: () => void;
   onOpenHelp: () => void;
 }
 
@@ -72,12 +77,14 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
   score,
   isMuted,
   isFullscreen = false,
+  isPaused = false,
   currentLyric,
   isSingingPhase,
   onHomeClick,
   onScoreboardToggle,
   onToggleMute,
   onToggleFullscreen,
+  onTogglePause,
   onOpenHelp
 }) => {
   return (
@@ -85,7 +92,10 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
       {/* Brand & Mode Tag */}
       <div className="flex items-center gap-2">
         <button
-          onClick={onHomeClick}
+          onClick={() => {
+            playUIClick();
+            onHomeClick();
+          }}
           className="flex items-center gap-1.5 group cursor-pointer"
           title="Kembali ke Menu Utama"
         >
@@ -113,7 +123,10 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
       {/* Right Controls & Scores */}
       <div className="flex items-center gap-1.5 sm:gap-2">
         <button
-          onClick={onScoreboardToggle}
+          onClick={() => {
+            playUIClick();
+            onScoreboardToggle();
+          }}
           className="flex items-center gap-1.5 text-xs cursor-pointer hover:opacity-90 active:scale-95 transition-all box-border"
           title="Lihat Papan Skor"
         >
@@ -131,17 +144,46 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
 
         {/* Sound Toggle */}
         <button
-          onClick={onToggleMute}
+          onClick={() => {
+            playUIClick();
+            onToggleMute();
+          }}
           className="w-8 h-8 rounded-[10px] bg-[#0f2824] hover:bg-[#24564b] border border-[#f4d7a1]/30 flex items-center justify-center text-[#fff1c7] transition-all cursor-pointer active:scale-95"
           title={isMuted ? 'Nyalakan Suara Gamelan' : 'Bisukan Suara'}
         >
           {isMuted ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5 text-[#ffd166]" />}
         </button>
 
+        {/* Dedicated Pause Button */}
+        {onTogglePause && (
+          <button
+            onClick={() => {
+              playUIClick();
+              onTogglePause();
+            }}
+            className={`w-8 h-8 rounded-[10px] border flex items-center justify-center transition-all cursor-pointer active:scale-95 touch-manipulation ${
+              isPaused
+                ? 'bg-[#d95d39] border-[#ffd166] text-[#fff1c7] shadow-lg animate-pulse'
+                : 'bg-[#0f2824] hover:bg-[#24564b] border-[#f4d7a1]/30 text-[#fff1c7]'
+            }`}
+            title={isPaused ? 'Lanjutkan Permainan (Resume) [P/Esc]' : 'Jeda Permainan (Pause) [P/Esc]'}
+            aria-label={isPaused ? 'Lanjutkan' : 'Jeda'}
+          >
+            {isPaused ? (
+              <Play className="w-3.5 h-3.5 fill-current text-[#ffd166]" />
+            ) : (
+              <Pause className="w-3.5 h-3.5 text-[#ffd166]" />
+            )}
+          </button>
+        )}
+
         {/* Fullscreen Toggle */}
         {onToggleFullscreen && (
           <button
-            onClick={onToggleFullscreen}
+            onClick={() => {
+              playUIClick();
+              onToggleFullscreen();
+            }}
             className="w-8 h-8 rounded-[10px] bg-[#0f2824] hover:bg-[#24564b] border border-[#f4d7a1]/30 flex items-center justify-center text-[#fff1c7] transition-all cursor-pointer active:scale-95 touch-manipulation"
             title={isFullscreen ? 'Keluar dari Layar Penuh' : 'Mode Layar Penuh (Fullscreen)'}
             aria-label={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
@@ -156,7 +198,10 @@ export const GameHeader: React.FC<GameHeaderProps> = ({
 
         {/* Help Button */}
         <button
-          onClick={onOpenHelp}
+          onClick={() => {
+            playUIClick();
+            onOpenHelp();
+          }}
           className="w-8 h-8 rounded-[10px] bg-[#0f2824] hover:bg-[#24564b] border border-[#f4d7a1]/30 flex items-center justify-center text-[#fff1c7] transition-all cursor-pointer active:scale-95"
           title="Panduan Bermain"
         >
@@ -188,7 +233,10 @@ export const RotationPaddles: React.FC<RotationPaddlesProps> = ({
       {/* Left Thumb: Putar Kiri */}
       <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-20 pointer-events-auto box-border">
         <button
-          onPointerDown={onRotateLeftStart}
+          onPointerDown={() => {
+            playUIClick();
+            onRotateLeftStart();
+          }}
           onPointerUp={onRotateLeftEnd}
           onPointerLeave={onRotateLeftEnd}
           className="min-h-[44px] flex items-center gap-1.5 px-4 py-2.5 bg-[#183d38]/95 active:bg-[#79b85b] rounded-[10px] text-xs sm:text-sm font-bold text-[#fff1c7] border-2 border-[#b5d48c] shadow-2xl backdrop-blur-md transition-transform active:scale-90 cursor-pointer select-none"
@@ -200,7 +248,10 @@ export const RotationPaddles: React.FC<RotationPaddlesProps> = ({
       {/* Right Thumb: Putar Kanan */}
       <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-20 pointer-events-auto box-border">
         <button
-          onPointerDown={onRotateRightStart}
+          onPointerDown={() => {
+            playUIClick();
+            onRotateRightStart();
+          }}
           onPointerUp={onRotateRightEnd}
           onPointerLeave={onRotateRightEnd}
           className="min-h-[44px] flex items-center gap-1.5 px-4 py-2.5 bg-[#183d38]/95 active:bg-[#79b85b] rounded-[10px] text-xs sm:text-sm font-bold text-[#fff1c7] border-2 border-[#b5d48c] shadow-2xl backdrop-blur-md transition-transform active:scale-90 cursor-pointer select-none"
@@ -296,7 +347,10 @@ export const MathControlDock: React.FC<MathControlDockProps> = ({
       <div className="w-full max-w-4xl flex items-center justify-between sm:justify-center gap-1 sm:gap-2 px-2 py-1 bg-[#183d38]/95 backdrop-blur-md rounded-[12px] sm:rounded-[16px] border border-[#f4d7a1]/70 shadow-lg box-border overflow-x-auto">
         {/* Step -1 Button */}
         <button
-          onClick={onStepLeft}
+          onClick={() => {
+            playUIClick();
+            onStepLeft();
+          }}
           disabled={!isMyTurn}
           className="h-8 sm:h-9 px-2 sm:px-3 flex items-center gap-1 bg-[#24564b] hover:bg-[#1b433b] active:scale-95 disabled:opacity-40 rounded-[10px] font-bold text-xs sm:text-sm text-[#fff1c7] border border-[#b5d48c]/40 shrink-0 shadow transition-transform cursor-pointer"
           title="Geser -1 ke kiri"
@@ -310,7 +364,10 @@ export const MathControlDock: React.FC<MathControlDockProps> = ({
           {numbers.map((val) => (
             <button
               key={val}
-              onClick={() => onDirectSelect(val)}
+              onClick={() => {
+                playUIClick();
+                onDirectSelect(val);
+              }}
               disabled={!isMyTurn}
               className={`w-6 h-7 sm:w-7 sm:h-8 md:w-8 md:h-8 rounded-[8px] sm:rounded-[10px] text-[11px] sm:text-xs font-bold transition-all cursor-pointer flex items-center justify-center shrink-0 ${
                 currentValue === val
@@ -325,7 +382,10 @@ export const MathControlDock: React.FC<MathControlDockProps> = ({
 
         {/* Step +1 Button */}
         <button
-          onClick={onStepRight}
+          onClick={() => {
+            playUIClick();
+            onStepRight();
+          }}
           disabled={!isMyTurn}
           className="h-8 sm:h-9 px-2 sm:px-3 flex items-center gap-1 bg-[#24564b] hover:bg-[#1b433b] active:scale-95 disabled:opacity-40 rounded-[10px] font-bold text-xs sm:text-sm text-[#fff1c7] border border-[#b5d48c]/40 shrink-0 shadow transition-transform cursor-pointer"
           title="Geser +1 ke kanan"
@@ -336,7 +396,10 @@ export const MathControlDock: React.FC<MathControlDockProps> = ({
 
         {/* Submit Button */}
         <button
-          onClick={onSubmit}
+          onClick={() => {
+            playUIClick();
+            onSubmit();
+          }}
           disabled={!isMyTurn}
           className="h-8 sm:h-9 px-3 sm:px-5 bg-[#d95d39] hover:bg-[#c04a28] active:scale-95 disabled:opacity-40 text-[#fff1c7] font-black rounded-[10px] border border-[#f4d7a1] shadow text-xs sm:text-sm shrink-0 transition-transform cursor-pointer flex items-center justify-center"
         >
@@ -364,7 +427,10 @@ export const RetryBanner: React.FC<RetryBannerProps> = ({
       <div className="flex items-center gap-3 px-3 py-1.5 bg-[#183d38]/95 backdrop-blur-md rounded-[12px] sm:rounded-[16px] border border-amber-400 shadow-lg box-border">
         <span className="text-xs text-[#ffd166] font-semibold">{message}</span>
         <button
-          onClick={onRetry}
+          onClick={() => {
+            playUIClick();
+            onRetry();
+          }}
           className="h-8 px-4 bg-[#d95d39] hover:bg-[#c04a28] active:scale-95 text-[#fff1c7] font-bold rounded-[10px] border border-[#f4d7a1] shadow text-xs flex items-center gap-1.5 cursor-pointer"
         >
           <RotateCcw className="w-3.5 h-3.5" /> Coba Lagi
@@ -412,7 +478,10 @@ export const TurnNominationModal: React.FC<TurnNominationModalProps> = ({
                   return (
                     <button
                       key={group.id}
-                      onClick={() => onNominateGroup(group.id)}
+                      onClick={() => {
+                        playUIClick();
+                        onNominateGroup(group.id);
+                      }}
                       className={`p-2.5 sm:p-3 rounded-[16px] border-2 text-left transition-all active:scale-95 cursor-pointer box-border ${
                         isPancer
                           ? 'bg-[#14312c] border-amber-500/40 opacity-75'

@@ -11,6 +11,7 @@ import {
   RoomState
 } from '../types/game';
 import { audioManager } from '../audio/gamelanAudio';
+import { playUIClick } from '../audio/uiSound';
 import { drawVectorCharacter, drawHandHoldingRing } from '../renderer/characterRenderer';
 import { MATH_QUESTIONS, JAMUR_COMMANDS } from '../data/mathQuestions';
 
@@ -23,6 +24,7 @@ import { OrientationPrompt } from './OrientationPrompt';
 import { MathSuccessTransition } from './MathSuccessTransition';
 import { ScoreboardBadge } from './ScoreboardBadge';
 import { MainMenuOverlay } from './MainMenuOverlay';
+import { PauseOverlay } from './PauseOverlay';
 import {
   GameContainer,
   GameHeader,
@@ -80,6 +82,11 @@ export const JamathGame: React.FC = () => {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [currentLyric, setCurrentLyric] = useState<string>('Mari bermain Jamuran!');
   const [serverRoomState, setServerRoomState] = useState<RoomState | null>(null);
+
+  // In-Game Pause States
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const isPausedRef = useRef<boolean>(false);
+  const wasAudioPlayingBeforePauseRef = useRef<boolean>(false);
 
   // Transition and question celebration state
   const [solvedQuestion, setSolvedQuestion] = useState<MathQuestion | null>(null);
@@ -265,6 +272,96 @@ export const JamathGame: React.FC = () => {
     jamuranAudioController.setMuted(muted);
     setIsMuted(muted);
   }, []);
+
+  // Pause & Resume Controllers
+  const handlePause = useCallback(() => {
+    if (stateRef.current.gameState === 'MENU') return;
+    if (isPausedRef.current) return;
+
+    isPausedRef.current = true;
+    setIsPaused(true);
+
+    wasAudioPlayingBeforePauseRef.current = jamuranAudioController.isPlaying();
+    jamuranAudioController.pause();
+  }, []);
+
+  const handleResume = useCallback(() => {
+    if (!isPausedRef.current) return;
+
+    isPausedRef.current = false;
+    setIsPaused(false);
+    stateRef.current.lastFrameTime = performance.now();
+
+    if (wasAudioPlayingBeforePauseRef.current && stateRef.current.gameState === 'MUSIC_PLAYING') {
+      jamuranAudioController.resume();
+    }
+  }, []);
+
+  const handleTogglePause = useCallback(() => {
+    if (isPausedRef.current) {
+      handleResume();
+    } else {
+      handlePause();
+    }
+  }, [handlePause, handleResume]);
+
+  const handleReturnToMenuFromPause = useCallback(() => {
+    isPausedRef.current = false;
+    setIsPaused(false);
+    jamuranAudioController.stop();
+    jamuranAudioController.resetToBeginning();
+    if (gameMode === 'GROUP') {
+      multiplayerService.leaveRoom();
+    }
+    stateRef.current.gameState = 'MENU';
+    setGameState('MENU');
+  }, [gameMode]);
+
+  // Auto-pause when user leaves the tab (switches tab, minimizes, switches mobile app)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        if (stateRef.current.gameState !== 'MENU' && appScreen === 'GAME' && !isPausedRef.current) {
+          handlePause();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [appScreen, handlePause]);
+
+  // Keyboard shortcut listener (Esc / P to toggle pause during active gameplay)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA')) {
+        return;
+      }
+
+      if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
+        if (
+          gameState !== 'MENU' &&
+          appScreen === 'GAME' &&
+          !showModeModal &&
+          !showRoomModal &&
+          !showIdentityModal &&
+          !isHelpOpen
+        ) {
+          e.preventDefault();
+          audioManager.playClick();
+          handleTogglePause();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [gameState, appScreen, showModeModal, showRoomModal, showIdentityModal, isHelpOpen, handleTogglePause]);
 
   // Confetti particles spawner using dynamic viewport center
   const spawnConfetti = (centerX?: number, centerY?: number) => {
@@ -644,8 +741,11 @@ export const JamathGame: React.FC = () => {
 
     const loop = (timestamp: number) => {
       const st = stateRef.current;
-      const deltaTime = Math.min((timestamp - st.lastFrameTime) / 1000, 0.05);
+      const actualDelta = Math.min((timestamp - st.lastFrameTime) / 1000, 0.05);
       st.lastFrameTime = timestamp;
+
+      // When game is paused, freeze animation & physics elapsed delta
+      const deltaTime = isPausedRef.current ? 0 : actualDelta;
 
       const { width: w, height: h } = viewportSizeRef.current;
       const isLandscape = w > h;
@@ -833,7 +933,10 @@ export const JamathGame: React.FC = () => {
         <div className="fixed top-3 left-1/2 -translate-x-1/2 z-50 max-w-sm w-[90%] px-4 py-2.5 bg-[#183d38]/95 backdrop-blur-md border border-[#ffd166] rounded-[12px] shadow-2xl flex items-center justify-between gap-2 text-xs text-[#fff1c7] animate-fadeIn pointer-events-auto">
           <span>{fullscreenMessage}</span>
           <button
-            onClick={dismissFullscreenMessage}
+            onClick={() => {
+              playUIClick();
+              dismissFullscreenMessage();
+            }}
             className="p-1 rounded-[6px] hover:bg-[#24564b] text-slate-300 hover:text-white cursor-pointer"
             title="Tutup"
           >
@@ -896,6 +999,7 @@ export const JamathGame: React.FC = () => {
               }}
               onToggleMute={toggleMute}
               onToggleFullscreen={toggleFullscreen}
+              onTogglePause={handleTogglePause}
               onOpenHelp={() => setIsHelpOpen(true)}
             />
           )}
@@ -1118,6 +1222,24 @@ export const JamathGame: React.FC = () => {
           }}
         />
       )}
+
+      {/* IN-GAME PAUSE OVERLAY */}
+      <PauseOverlay
+        isOpen={isPaused}
+        gameMode={gameMode}
+        roundNumber={gameMode === 'GROUP' ? serverRoomState?.roundNumber || 1 : singleScore.round}
+        score={
+          gameMode === 'GROUP' && myPlayerInRoom?.groupId && serverRoomState?.groups[myPlayerInRoom.groupId]
+            ? serverRoomState.groups[myPlayerInRoom.groupId].score
+            : singleScore.current
+        }
+        isMuted={isMuted}
+        gameState={gameState}
+        onResume={handleResume}
+        onToggleMute={toggleMute}
+        onOpenHelp={() => setIsHelpOpen(true)}
+        onReturnToMenu={handleReturnToMenuFromPause}
+      />
 
       {/* MODAL 4: HOW TO PLAY */}
       <HowToPlayModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />

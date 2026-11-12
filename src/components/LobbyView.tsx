@@ -3,6 +3,7 @@ import { RoomState } from '../types/game';
 import { multiplayerService } from '../services/multiplayerService';
 import { Button, Panel, Badge } from './ui';
 import { Copy, Check, Users, Play, LogOut, Crown, ShieldAlert, Sparkles, UserCheck, Maximize2, Minimize2 } from 'lucide-react';
+import { playUIClick } from '../audio/uiSound';
 
 interface LobbyViewProps {
   roomState: RoomState;
@@ -33,12 +34,14 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
   const canStart = isHost && filledGroups.length >= 2;
 
   const copyRoomCode = () => {
+    playUIClick();
     navigator.clipboard.writeText(roomState.roomCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleJoinGroup = (groupId: string) => {
+    playUIClick();
     multiplayerService.joinGroup(groupId);
   };
 

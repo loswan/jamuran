@@ -1,5 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
+import { playUIClick } from '../../audio/uiSound';
 
 export interface ModalProps {
   isOpen?: boolean;
@@ -35,6 +36,7 @@ export const Modal: React.FC<ModalProps> = ({
       className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn"
       onClick={(e) => {
         if (e.target === e.currentTarget && onClose) {
+          playUIClick();
           onClose();
         }
       }}
@@ -69,7 +71,10 @@ export const Modal: React.FC<ModalProps> = ({
 
           {onClose && (
             <button
-              onClick={onClose}
+              onClick={() => {
+                playUIClick();
+                onClose();
+              }}
               className="w-9 h-9 sm:w-10 sm:h-10 rounded-[10px] flex items-center justify-center text-slate-300 hover:text-white hover:bg-white/10 active:scale-90 transition-all shrink-0 ml-1 cursor-pointer"
               aria-label="Tutup"
               title="Tutup (Esc)"

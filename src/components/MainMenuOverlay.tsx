@@ -2,6 +2,7 @@ import React from 'react';
 import { PlayerProfile, GameMode } from '../types/game';
 import { Play, Users, User, HelpCircle, Volume2, VolumeX, Sparkles, Edit3, Maximize2, Minimize2 } from 'lucide-react';
 import { Button, Panel, Badge } from './ui';
+import { playUIClick } from '../audio/uiSound';
 
 interface MainMenuOverlayProps {
   playerProfile: PlayerProfile;
@@ -52,7 +53,10 @@ export const MainMenuOverlay: React.FC<MainMenuOverlayProps> = ({
         <div className="flex items-center gap-2">
           {/* Sound Toggle */}
           <button
-            onClick={onToggleMute}
+            onClick={() => {
+              playUIClick();
+              onToggleMute();
+            }}
             className="w-9 h-9 sm:w-10 sm:h-10 rounded-[10px] bg-[#183d38] hover:bg-[#24564b] border border-[#f4d7a1]/30 flex items-center justify-center text-[#fff1c7] transition-all cursor-pointer active:scale-95"
             title={isMuted ? 'Nyalakan Musik' : 'Bisukan Suara'}
             aria-label="Toggle Sound"
@@ -67,7 +71,10 @@ export const MainMenuOverlay: React.FC<MainMenuOverlayProps> = ({
           {/* Fullscreen Toggle */}
           {onToggleFullscreen && (
             <button
-              onClick={onToggleFullscreen}
+              onClick={() => {
+                playUIClick();
+                onToggleFullscreen();
+              }}
               className="w-9 h-9 sm:w-10 sm:h-10 rounded-[10px] bg-[#183d38] hover:bg-[#24564b] border border-[#f4d7a1]/30 flex items-center justify-center text-[#fff1c7] transition-all cursor-pointer active:scale-95 touch-manipulation"
               title={isFullscreen ? 'Keluar dari Layar Penuh' : 'Mode Layar Penuh (Fullscreen)'}
               aria-label={isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh'}
@@ -82,7 +89,10 @@ export const MainMenuOverlay: React.FC<MainMenuOverlayProps> = ({
 
           {/* Help Button */}
           <button
-            onClick={onOpenHelp}
+            onClick={() => {
+              playUIClick();
+              onOpenHelp();
+            }}
             className="w-9 h-9 sm:w-10 sm:h-10 rounded-[10px] bg-[#183d38] hover:bg-[#24564b] border border-[#f4d7a1]/30 flex items-center justify-center text-[#fff1c7] transition-all cursor-pointer active:scale-95"
             title="Panduan Bermain"
             aria-label="Panduan"

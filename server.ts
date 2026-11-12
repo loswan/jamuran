@@ -148,6 +148,7 @@ interface ConnectedClient {
   ws: WebSocket;
   playerId: string;
   roomCode: string | null;
+  isAlive: boolean;
 }
 
 // In-Memory Database for active rooms
@@ -292,17 +293,40 @@ async function startServer() {
 
   server.on('upgrade', (request, socket, head) => {
     try {
-      const { pathname } = new URL(request.url || '', `http://${request.headers.host || 'localhost'}`);
+      const hostHeader = request.headers.host || 'localhost';
+      const url = new URL(request.url || '', `http://${hostHeader}`);
+      const pathname = url.pathname;
+
       if (pathname === '/ws') {
         wss.handleUpgrade(request, socket, head, (ws) => {
           wss.emit('connection', ws, request);
         });
       } else {
+        // Return 404 response before closing non-multiplayer upgrade sockets
+        socket.write('HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n');
         socket.destroy();
       }
     } catch {
       socket.destroy();
     }
+  });
+
+  // Server-side heartbeat to sweep dead sockets and prevent reverse proxy timeout
+  const heartbeatInterval = setInterval(() => {
+    wss.clients.forEach((ws) => {
+      const client = clients.get(ws);
+      if (!client) return;
+      if (!client.isAlive) {
+        ws.terminate();
+        return;
+      }
+      client.isAlive = false;
+      ws.ping();
+    });
+  }, 30000);
+
+  server.on('close', () => {
+    clearInterval(heartbeatInterval);
   });
 
   app.use(express.json());
@@ -341,12 +365,18 @@ async function startServer() {
     const clientState: ConnectedClient = {
       ws,
       playerId: `player_${Math.random().toString(36).substring(2, 9)}`,
-      roomCode: null
+      roomCode: null,
+      isAlive: true
     };
     clients.set(ws, clientState);
 
+    ws.on('pong', () => {
+      clientState.isAlive = true;
+    });
+
     ws.on('message', (data: string) => {
       try {
+        clientState.isAlive = true;
         const message: ClientMessage = JSON.parse(data.toString());
         handleClientMessage(clientState, message);
       } catch (err) {
@@ -785,9 +815,13 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.resolve(__dirname, 'dist')));
+    const distPath = path.resolve(__dirname, 'dist');
+    // Serve production assets for both /jamuran base path and root
+    app.use('/jamuran', express.static(distPath));
+    app.use(express.static(distPath));
+
     app.get('*', (req, res) => {
-      res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+      res.sendFile(path.resolve(distPath, 'index.html'));
     });
   }
 

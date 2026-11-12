@@ -10,6 +10,7 @@ import {
   Users
 } from 'lucide-react';
 import { GroupProfile } from '../types/game';
+import { playUIClick } from '../audio/uiSound';
 
 interface ScoreboardBadgeProps {
   visible: boolean;
@@ -106,8 +107,11 @@ export const ScoreboardBadge: React.FC<ScoreboardBadgeProps> = ({
           {/* Optional close button if user wants to minimize */}
           {onClose && (
             <button
-              onClick={onClose}
-              className="text-slate-400 hover:text-white text-xs p-1 rounded-[10px] hover:bg-white/10 transition-colors"
+              onClick={() => {
+                playUIClick();
+                onClose();
+              }}
+              className="text-slate-400 hover:text-white text-xs p-1 rounded-[10px] hover:bg-white/10 transition-colors cursor-pointer"
               title="Tutup"
             >
               ✕

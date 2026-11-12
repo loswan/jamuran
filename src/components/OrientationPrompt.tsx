@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Smartphone, RotateCw, X, Play } from 'lucide-react';
 import { GameState } from '../types/game';
+import { playUIClick } from '../audio/uiSound';
 
 export interface OrientationPromptProps {
   /** Current app screen (GAME or LOBBY) */
@@ -126,7 +127,10 @@ export const OrientationPrompt: React.FC<OrientationPromptProps> = ({
         {/* Action Buttons */}
         <div className="flex items-center gap-1.5 shrink-0">
           <button
-            onClick={() => setDismissed(true)}
+            onClick={() => {
+              playUIClick();
+              setDismissed(true);
+            }}
             className="min-h-[36px] px-3 py-1 bg-[#d95d39] hover:bg-[#c04a28] active:scale-95 text-[#fff1c7] font-bold rounded-[10px] border border-[#f4d7a1] shadow text-[11px] flex items-center gap-1 cursor-pointer transition-transform"
             title="Lanjutkan bermain dalam posisi tegak"
           >
@@ -134,7 +138,10 @@ export const OrientationPrompt: React.FC<OrientationPromptProps> = ({
           </button>
 
           <button
-            onClick={() => setDismissed(true)}
+            onClick={() => {
+              playUIClick();
+              setDismissed(true);
+            }}
             className="w-8 h-8 rounded-[10px] bg-[#0f2824] hover:bg-[#24564b] border border-[#f4d7a1]/30 flex items-center justify-center text-slate-300 hover:text-white cursor-pointer active:scale-95"
             title="Tutup pemberitahuan"
             aria-label="Tutup"

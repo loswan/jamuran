@@ -1,4 +1,5 @@
 import React from 'react';
+import { playUIClick } from '../../audio/uiSound';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost';
@@ -17,6 +18,7 @@ export const Button: React.FC<ButtonProps> = ({
   fullWidth = false,
   className = '',
   disabled,
+  onClick,
   ...props
 }) => {
   // Border radius strictly 10px per design system
@@ -46,6 +48,12 @@ export const Button: React.FC<ButtonProps> = ({
     <button
       disabled={disabled}
       className={`${baseClasses} ${sizeClasses} ${variantClasses} ${fullWidth ? 'w-full' : ''} ${className}`}
+      onClick={(e) => {
+        if (!disabled) {
+          playUIClick();
+        }
+        onClick?.(e);
+      }}
       {...props}
     >
       {icon && iconPosition === 'left' && <span className="shrink-0">{icon}</span>}

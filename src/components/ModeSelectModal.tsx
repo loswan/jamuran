@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { GameMode } from '../types/game';
-import { Modal, Badge } from './ui';
+import { Modal, Badge, Button } from './ui';
 import { User, Users, ShieldCheck, Sparkles, ArrowRight } from 'lucide-react';
+import { playUIClick } from '../audio/uiSound';
 
 interface ModeSelectModalProps {
   onSelectMode: (mode: GameMode) => void;
@@ -9,22 +10,48 @@ interface ModeSelectModalProps {
 }
 
 export const ModeSelectModal: React.FC<ModeSelectModalProps> = ({ onSelectMode, onClose }) => {
+  const handleSelectMode = useCallback(
+    (mode: GameMode) => {
+      playUIClick();
+      onSelectMode(mode);
+    },
+    [onSelectMode]
+  );
+
+  const handleClose = useCallback(() => {
+    playUIClick();
+    onClose();
+  }, [onClose]);
+
   return (
     <Modal
       isOpen={true}
-      onClose={onClose}
+      onClose={handleClose}
       title="PILIH MODE PERMAINAN"
       subtitle="Latihan mandiri atau bertanding kelompok bersama teman kelas"
       icon={<Users className="w-5 h-5 text-[#ffd166]" />}
       badge={<Badge variant="gold" size="sm">MODE</Badge>}
       maxWidthClass="max-w-2xl"
+      footer={
+        <div className="flex items-center justify-end">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={handleClose}
+          >
+            Batal
+          </Button>
+        </div>
+      }
     >
       <div className="flex flex-col gap-3">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {/* Mode 1: Individu */}
           <button
-            onClick={() => onSelectMode('INDIVIDUAL')}
-            className="group flex flex-col justify-between p-3.5 sm:p-4 bg-[#0f2824] hover:bg-[#1a443e] border-2 border-[#79b85b]/40 hover:border-[#ffd166] rounded-[16px] text-left transition-all active:scale-95 shadow cursor-pointer"
+            type="button"
+            onClick={() => handleSelectMode('INDIVIDUAL')}
+            className="group flex flex-col justify-between p-3.5 sm:p-4 bg-[#0f2824] hover:bg-[#1a443e] border-2 border-[#79b85b]/40 hover:border-[#ffd166] rounded-[16px] text-left transition-all active:scale-95 shadow cursor-pointer touch-manipulation"
           >
             <div>
               <div className="w-10 h-10 rounded-[10px] bg-[#24564b] border border-[#f4d7a1]/30 flex items-center justify-center text-[#ffd166] mb-2.5 group-hover:bg-[#d95d39] transition-colors shadow-sm">
@@ -51,8 +78,9 @@ export const ModeSelectModal: React.FC<ModeSelectModalProps> = ({ onSelectMode, 
 
           {/* Mode 2: Kelompok */}
           <button
-            onClick={() => onSelectMode('GROUP')}
-            className="group flex flex-col justify-between p-3.5 sm:p-4 bg-[#0f2824] hover:bg-[#1a443e] border-2 border-[#d95d39]/60 hover:border-[#ffd166] rounded-[16px] text-left transition-all active:scale-95 shadow relative cursor-pointer"
+            type="button"
+            onClick={() => handleSelectMode('GROUP')}
+            className="group flex flex-col justify-between p-3.5 sm:p-4 bg-[#0f2824] hover:bg-[#1a443e] border-2 border-[#d95d39]/60 hover:border-[#ffd166] rounded-[16px] text-left transition-all active:scale-95 shadow relative cursor-pointer touch-manipulation"
           >
             <div>
               <div className="flex items-center justify-between mb-2">

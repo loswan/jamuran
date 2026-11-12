@@ -14,9 +14,14 @@ class MultiplayerService {
   private errorListeners: Set<ErrorListener> = new Set();
   private connectionListeners: Set<ConnectionListener> = new Set();
   private isConnecting: boolean = false;
+  private connectPromise: Promise<boolean> | null = null;
   private pingInterval: number | null = null;
   private reconnectTimeout: number | null = null;
+  private reconnectAttempts: number = 0;
+  private maxReconnectAttempts: number = 5;
+  private manualDisconnect: boolean = false;
   private lastKnownState: RoomState | null = null;
+  private storedPlayerProfile: Omit<PlayerProfile, 'isHost' | 'joinedAt'> | null = null;
 
   constructor() {
     // Generate or retrieve stored playerId
@@ -46,23 +51,43 @@ class MultiplayerService {
     return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
   }
 
+  /**
+   * Resolves the WebSocket URL with environment variable override (VITE_WS_URL)
+   * or falls back dynamically to the current host with correct ws:// or wss:// protocol.
+   */
+  public getWebSocketUrl(): string {
+    const envWsUrl = (import.meta as any).env?.VITE_WS_URL;
+    if (envWsUrl && typeof envWsUrl === 'string' && envWsUrl.trim().length > 0) {
+      return envWsUrl.trim();
+    }
+    if (typeof window !== 'undefined') {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const host = window.location.host;
+      return `${protocol}//${host}/ws`;
+    }
+    return 'ws://localhost:3000/ws';
+  }
+
+  /**
+   * Connects to WebSocket server. Reuses in-flight promise to prevent duplicate sockets
+   * caused by simultaneous calls or React re-renders.
+   */
   public connect(): Promise<boolean> {
     if (this.isConnected()) return Promise.resolve(true);
-    if (this.isConnecting) return Promise.resolve(false);
+    if (this.connectPromise) return this.connectPromise;
 
     this.isConnecting = true;
     this.notifyConnection(false, true);
 
-    return new Promise((resolve) => {
+    this.connectPromise = new Promise<boolean>((resolve) => {
       try {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.host;
-        const wsUrl = `${protocol}//${host}/ws`;
-
+        const wsUrl = this.getWebSocketUrl();
         this.ws = new WebSocket(wsUrl);
 
         this.ws.onopen = () => {
           this.isConnecting = false;
+          this.reconnectAttempts = 0;
+          this.connectPromise = null;
           this.notifyConnection(true, false);
           this.startHeartbeat();
           resolve(true);
@@ -79,30 +104,66 @@ class MultiplayerService {
 
         this.ws.onclose = () => {
           this.isConnecting = false;
+          this.connectPromise = null;
           this.stopHeartbeat();
           this.notifyConnection(false, false);
+          this.handleUnexpectedClose();
           resolve(false);
         };
 
         this.ws.onerror = (err) => {
           console.warn('WS error:', err);
           this.isConnecting = false;
+          this.connectPromise = null;
           this.notifyConnection(false, false);
           resolve(false);
         };
       } catch (err) {
         this.isConnecting = false;
+        this.connectPromise = null;
         this.notifyConnection(false, false);
         resolve(false);
       }
     });
+
+    return this.connectPromise;
+  }
+
+  private handleUnexpectedClose() {
+    if (this.manualDisconnect) return;
+    // Auto-reconnect if player was in an active room
+    if (this.currentRoomCode && this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      const delay = Math.min(1000 * Math.pow(1.5, this.reconnectAttempts), 5000);
+      this.notifyAnnouncement(
+        `Koneksi terputus. Menghubungkan ulang (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`,
+        'warning'
+      );
+
+      if (this.reconnectTimeout !== null) {
+        window.clearTimeout(this.reconnectTimeout);
+      }
+
+      this.reconnectTimeout = window.setTimeout(async () => {
+        const ok = await this.connect();
+        if (ok && this.currentRoomCode && this.storedPlayerProfile) {
+          this.send({
+            type: 'JOIN_ROOM',
+            payload: {
+              roomCode: this.currentRoomCode,
+              player: { ...this.storedPlayerProfile, id: this.myPlayerId }
+            }
+          });
+        }
+      }, delay);
+    }
   }
 
   private startHeartbeat() {
     this.stopHeartbeat();
     this.pingInterval = window.setInterval(() => {
       this.send({ type: 'PING' });
-    }, 15000);
+    }, 20000);
   }
 
   private stopHeartbeat() {
@@ -152,6 +213,8 @@ class MultiplayerService {
   }
 
   public async createRoom(mode: GameMode, player: Omit<PlayerProfile, 'isHost' | 'joinedAt'>) {
+    this.manualDisconnect = false;
+    this.storedPlayerProfile = player;
     await this.connect();
     this.send({
       type: 'CREATE_ROOM',
@@ -160,10 +223,12 @@ class MultiplayerService {
   }
 
   public async joinRoom(roomCode: string, player: Omit<PlayerProfile, 'isHost' | 'joinedAt'>) {
+    this.manualDisconnect = false;
+    this.storedPlayerProfile = player;
     await this.connect();
     this.send({
       type: 'JOIN_ROOM',
-      payload: { roomCode, player: { ...player, id: this.myPlayerId } }
+      payload: { roomCode: roomCode.trim().toUpperCase(), player: { ...player, id: this.myPlayerId } }
     });
   }
 
@@ -202,9 +267,34 @@ class MultiplayerService {
   }
 
   public leaveRoom() {
+    this.manualDisconnect = true;
+    if (this.reconnectTimeout !== null) {
+      window.clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
     this.send({ type: 'LEAVE_ROOM' });
     this.currentRoomCode = null;
     this.lastKnownState = null;
+    this.storedPlayerProfile = null;
+    this.reconnectAttempts = 0;
+  }
+
+  public disconnect() {
+    this.manualDisconnect = true;
+    this.stopHeartbeat();
+    if (this.reconnectTimeout !== null) {
+      window.clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+    if (this.ws) {
+      try {
+        this.ws.close();
+      } catch {}
+      this.ws = null;
+    }
+    this.isConnecting = false;
+    this.connectPromise = null;
+    this.notifyConnection(false, false);
   }
 
   // Listeners

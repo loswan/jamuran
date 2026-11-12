@@ -1,0 +1,28 @@
+# =========================================================================
+# JAMATH SYSTEMD SERVICE FILE FOR VPS (UBUNTU / DEBIAN)
+# Location: /etc/systemd/system/jamath.service
+# =========================================================================
+# 1. Salin ke /etc/systemd/system/jamath.service
+# 2. Jalankan: sudo systemctl daemon-reload
+# 3. Jalankan: sudo systemctl enable --now jamath
+# 4. Status:   sudo systemctl status jamath
+
+[Unit]
+Description=JAMATH Multiplayer Game Server
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/jamath
+ExecStart=/usr/bin/npm start
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=PORT=3000
+
+# Security limits
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

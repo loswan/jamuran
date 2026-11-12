@@ -3,6 +3,7 @@ import { GameMode, PlayerProfile } from '../types/game';
 import { multiplayerService } from '../services/multiplayerService';
 import { Modal, Button, Badge } from './ui';
 import { PlusCircle, LogIn, Users, AlertCircle, RefreshCw, UserCheck } from 'lucide-react';
+import { playUIClick } from '../audio/uiSound';
 
 interface RoomJoinCreateModalProps {
   player: PlayerProfile;
@@ -130,7 +131,10 @@ export const RoomJoinCreateModal: React.FC<RoomJoinCreateModalProps> = ({
             </span>
           </div>
           <button
-            onClick={onChangeIdentity}
+            onClick={() => {
+              playUIClick();
+              onChangeIdentity();
+            }}
             className="text-[11px] font-bold text-[#ffd166] hover:underline cursor-pointer shrink-0 ml-2"
           >
             Ubah
@@ -142,6 +146,7 @@ export const RoomJoinCreateModal: React.FC<RoomJoinCreateModalProps> = ({
           <button
             type="button"
             onClick={() => {
+              playUIClick();
               setActiveTab('JOIN');
               setErrorMsg('');
             }}
@@ -157,6 +162,7 @@ export const RoomJoinCreateModal: React.FC<RoomJoinCreateModalProps> = ({
           <button
             type="button"
             onClick={() => {
+              playUIClick();
               setActiveTab('CREATE');
               setErrorMsg('');
             }}

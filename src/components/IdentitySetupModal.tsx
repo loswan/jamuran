@@ -3,6 +3,7 @@ import { CharacterType, PlayerProfile } from '../types/game';
 import { drawVectorCharacter } from '../renderer/characterRenderer';
 import { Modal, Button, Badge, Input } from './ui';
 import { User, Palette, Check } from 'lucide-react';
+import { playUIClick } from '../audio/uiSound';
 
 interface IdentitySetupModalProps {
   initialPlayer?: Partial<PlayerProfile>;
@@ -112,7 +113,10 @@ export const IdentitySetupModal: React.FC<IdentitySetupModalProps> = ({
             <div className="grid grid-cols-2 gap-1.5 w-full mt-2">
               <button
                 type="button"
-                onClick={() => setCharacter('boy')}
+                onClick={() => {
+                  playUIClick();
+                  setCharacter('boy');
+                }}
                 className={`py-1.5 px-2 rounded-[10px] border-2 text-center transition-all cursor-pointer ${
                   character === 'boy'
                     ? 'bg-[#24564b] border-[#ffd166] text-[#fff1c7] shadow'
@@ -125,7 +129,10 @@ export const IdentitySetupModal: React.FC<IdentitySetupModalProps> = ({
 
               <button
                 type="button"
-                onClick={() => setCharacter('girl')}
+                onClick={() => {
+                  playUIClick();
+                  setCharacter('girl');
+                }}
                 className={`py-1.5 px-2 rounded-[10px] border-2 text-center transition-all cursor-pointer ${
                   character === 'girl'
                     ? 'bg-[#24564b] border-[#ffd166] text-[#fff1c7] shadow'
@@ -165,7 +172,10 @@ export const IdentitySetupModal: React.FC<IdentitySetupModalProps> = ({
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => setColorVariant(idx)}
+                    onClick={() => {
+                      playUIClick();
+                      setColorVariant(idx);
+                    }}
                     className={`flex items-center justify-center gap-1 py-1.5 px-1 rounded-[10px] text-xs font-semibold transition-all cursor-pointer ${
                       colorVariant === idx
                         ? 'bg-[#24564b] text-[#ffd166] border border-[#ffd166] shadow'
