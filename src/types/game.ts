@@ -167,6 +167,7 @@ export type ServerMessage =
   | { type: 'ROOM_CREATED'; payload: { roomCode: string; playerId: string; roomState: RoomState } }
   | { type: 'ROOM_JOINED'; payload: { roomCode: string; playerId: string; roomState: RoomState } }
   | { type: 'ROOM_STATE_UPDATE'; payload: RoomState }
+  | { type: 'GAME_STARTED'; payload: { roomCode: string; roomState: RoomState } }
   | { type: 'ERROR'; payload: { message: string; code?: string } }
   | { type: 'PLAYER_DISCONNECTED'; payload: { playerId: string; playerName: string } }
   | { type: 'ANNOUNCEMENT'; payload: { message: string; level?: 'info' | 'success' | 'warning' } }

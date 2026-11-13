@@ -196,12 +196,20 @@ async function runTests() {
     // -----------------------------------------------------------------
     // TEST 6: Host Memulai Permainan
     // -----------------------------------------------------------------
-    const gameStartPromise = new Promise<any>((resolve) => {
+    const gameStartPromise = new Promise<{ roomStateUpdate: any; gameStartedEvent: any }>((resolve) => {
+      let roomStateUpdate: any = null;
+      let gameStartedEvent: any = null;
       const listener = (data: WebSocket.Data) => {
         const msg = JSON.parse(data.toString());
+        if (msg.type === 'GAME_STARTED' && msg.payload.roomState?.phase === 'MUSIC_PLAYING') {
+          gameStartedEvent = msg.payload.roomState;
+        }
         if (msg.type === 'ROOM_STATE_UPDATE' && msg.payload.phase === 'MUSIC_PLAYING') {
+          roomStateUpdate = msg.payload;
+        }
+        if (roomStateUpdate && gameStartedEvent) {
           player2Ws!.off('message', listener);
-          resolve(msg.payload);
+          resolve({ roomStateUpdate, gameStartedEvent });
         }
       };
       player2Ws!.on('message', listener);
@@ -209,8 +217,13 @@ async function runTests() {
 
     hostWs.send(JSON.stringify({ type: 'START_GAME' }));
 
-    const startState = await gameStartPromise;
-    record(6, 'Host Memulai Permainan', startState.phase === 'MUSIC_PLAYING', `Fase permainan beralih ke: ${startState.phase}`);
+    const { roomStateUpdate: startState, gameStartedEvent } = await gameStartPromise;
+    record(
+      6,
+      'Host Memulai Permainan',
+      startState.phase === 'MUSIC_PLAYING' && gameStartedEvent.phase === 'MUSIC_PLAYING',
+      `Player 2 menerima GAME_STARTED & ROOM_STATE_UPDATE -> fase: ${startState.phase}`
+    );
 
     // -----------------------------------------------------------------
     // TEST 7: State Permainan Tersinkronisasi

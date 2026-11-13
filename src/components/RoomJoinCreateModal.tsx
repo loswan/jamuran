@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { GameMode, PlayerProfile } from '../types/game';
+import React, { useState, useRef, useEffect } from 'react';
+import { GameMode, PlayerProfile, RoomState } from '../types/game';
 import { multiplayerService } from '../services/multiplayerService';
 import { Modal, Button, Badge } from './ui';
 import { PlusCircle, LogIn, Users, AlertCircle, RefreshCw, UserCheck } from 'lucide-react';
@@ -8,7 +8,7 @@ import { playUIClick } from '../audio/uiSound';
 interface RoomJoinCreateModalProps {
   player: PlayerProfile;
   mode: GameMode;
-  onSuccess: () => void;
+  onSuccess: (roomState?: RoomState) => void;
   onClose: () => void;
   onChangeIdentity: () => void;
 }
@@ -25,6 +25,21 @@ export const RoomJoinCreateModal: React.FC<RoomJoinCreateModalProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
 
+  const cleanupRef = useRef<(() => void) | null>(null);
+
+  const clearPendingListeners = () => {
+    if (cleanupRef.current) {
+      cleanupRef.current();
+      cleanupRef.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      clearPendingListeners();
+    };
+  }, []);
+
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanCode = roomCode.trim().toUpperCase();
@@ -37,8 +52,43 @@ export const RoomJoinCreateModal: React.FC<RoomJoinCreateModalProps> = ({
       return;
     }
 
+    clearPendingListeners();
     setIsLoading(true);
     setErrorMsg('');
+
+    let settled = false;
+    const timeoutId = window.setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        clearPendingListeners();
+        setIsLoading(false);
+        setErrorMsg('Waktu tunggu koneksi habis. Periksa kode room.');
+      }
+    }, 8000);
+
+    const unsubscribeError = multiplayerService.onError((err) => {
+      if (!settled) {
+        settled = true;
+        clearPendingListeners();
+        setIsLoading(false);
+        setErrorMsg(err);
+      }
+    });
+
+    const unsubscribeState = multiplayerService.onStateUpdate((state) => {
+      if (!settled && state.roomCode === cleanCode) {
+        settled = true;
+        clearPendingListeners();
+        setIsLoading(false);
+        onSuccess(state);
+      }
+    });
+
+    cleanupRef.current = () => {
+      window.clearTimeout(timeoutId);
+      unsubscribeError();
+      unsubscribeState();
+    };
 
     try {
       await multiplayerService.joinRoom(cleanCode, {
@@ -47,38 +97,54 @@ export const RoomJoinCreateModal: React.FC<RoomJoinCreateModalProps> = ({
         character: player.character,
         colorVariant: player.colorVariant
       });
-
-      const unsubscribeError = multiplayerService.onError((err) => {
-        setErrorMsg(err);
-        setIsLoading(false);
-      });
-
-      const unsubscribeState = multiplayerService.onStateUpdate((state) => {
-        if (state.roomCode === cleanCode) {
-          setIsLoading(false);
-          unsubscribeError();
-          unsubscribeState();
-          onSuccess();
-        }
-      });
-
-      setTimeout(() => {
-        if (isLoading) {
-          setIsLoading(false);
-          unsubscribeError();
-          unsubscribeState();
-          setErrorMsg('Waktu tunggu koneksi habis. Periksa kode room.');
-        }
-      }, 8000);
     } catch (err: any) {
-      setIsLoading(false);
-      setErrorMsg(err?.message || 'Gagal terhubung ke server');
+      if (!settled) {
+        settled = true;
+        clearPendingListeners();
+        setIsLoading(false);
+        setErrorMsg(err?.message || 'Gagal terhubung ke server');
+      }
     }
   };
 
   const handleCreate = async () => {
+    clearPendingListeners();
     setIsLoading(true);
     setErrorMsg('');
+
+    let settled = false;
+    const timeoutId = window.setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        clearPendingListeners();
+        setIsLoading(false);
+        setErrorMsg('Gagal membuat room. Periksa koneksi internet.');
+      }
+    }, 8000);
+
+    const unsubscribeError = multiplayerService.onError((err) => {
+      if (!settled) {
+        settled = true;
+        clearPendingListeners();
+        setIsLoading(false);
+        setErrorMsg(err);
+      }
+    });
+
+    const unsubscribeState = multiplayerService.onStateUpdate((state) => {
+      if (!settled && state.roomCode) {
+        settled = true;
+        clearPendingListeners();
+        setIsLoading(false);
+        onSuccess(state);
+      }
+    });
+
+    cleanupRef.current = () => {
+      window.clearTimeout(timeoutId);
+      unsubscribeError();
+      unsubscribeState();
+    };
 
     try {
       await multiplayerService.createRoom(mode, {
@@ -87,25 +153,13 @@ export const RoomJoinCreateModal: React.FC<RoomJoinCreateModalProps> = ({
         character: player.character,
         colorVariant: player.colorVariant
       });
-
-      const unsubscribeState = multiplayerService.onStateUpdate((state) => {
-        if (state.roomCode) {
-          setIsLoading(false);
-          unsubscribeState();
-          onSuccess();
-        }
-      });
-
-      setTimeout(() => {
-        if (isLoading) {
-          setIsLoading(false);
-          unsubscribeState();
-          setErrorMsg('Gagal membuat room. Periksa koneksi internet.');
-        }
-      }, 8000);
     } catch (err: any) {
-      setIsLoading(false);
-      setErrorMsg(err?.message || 'Gagal membuat room');
+      if (!settled) {
+        settled = true;
+        clearPendingListeners();
+        setIsLoading(false);
+        setErrorMsg(err?.message || 'Gagal membuat room');
+      }
     }
   };
 

@@ -279,9 +279,12 @@ function resumeJamuranAfterFeedback(roomCode: string) {
   }
 
   room.phase = 'MUSIC_PLAYING';
+  room.roundNumber += 1;
   room.activeTargetGroupId = null;
   room.feedbackResult = null;
   room.feedbackElapsed = 0;
+  room.commandDialogElapsed = 0;
+  room.actionElapsed = 0;
   room.announcement = 'Musik Jamuran dimulai! Berputar membentuk lingkaran!';
   broadcastRoomState(roomCode);
 }
@@ -400,8 +403,25 @@ async function startServer() {
 
   function handleClientDisconnect(client: ConnectedClient) {
     if (!client.roomCode) return;
-    const room = rooms.get(client.roomCode);
+    const roomCode = client.roomCode;
+    const room = rooms.get(roomCode);
     if (!room) return;
+
+    // If the same player has already reconnected on a newer active socket, do not evict them
+    let hasActiveReplacementSocket = false;
+    clients.forEach((other) => {
+      if (
+        other !== client &&
+        other.playerId === client.playerId &&
+        other.roomCode === roomCode &&
+        other.ws.readyState === WebSocket.OPEN
+      ) {
+        hasActiveReplacementSocket = true;
+      }
+    });
+    if (hasActiveReplacementSocket) {
+      return;
+    }
 
     const player = room.players[client.playerId];
     const playerName = player ? player.name : 'Pemain';
@@ -417,8 +437,8 @@ async function startServer() {
 
     // Check if room is now empty
     if (Object.keys(room.players).length === 0) {
-      rooms.delete(client.roomCode);
-      console.log(`Room ${client.roomCode} dihapus karena semua pemain keluar.`);
+      rooms.delete(roomCode);
+      console.log(`Room ${roomCode} dihapus karena semua pemain keluar.`);
       return;
     }
 
@@ -432,11 +452,11 @@ async function startServer() {
       room.announcement = `${playerName} telah meninggalkan permainan.`;
     }
 
-    broadcastToRoom(client.roomCode, {
+    broadcastToRoom(roomCode, {
       type: 'PLAYER_DISCONNECTED',
       payload: { playerId: client.playerId, playerName }
     });
-    broadcastRoomState(client.roomCode);
+    broadcastRoomState(roomCode);
   }
 
   function handleClientMessage(client: ConnectedClient, msg: ClientMessage) {
@@ -514,33 +534,54 @@ async function startServer() {
           });
         }
 
-        client.roomCode = roomCode;
-        client.playerId = msg.payload.player.id || client.playerId;
+        const incomingPlayerId = msg.payload.player.id || client.playerId;
 
-        // Auto-assign to group with fewest members in group mode
-        let assignedGroupId: string | undefined = undefined;
+        // Detach any stale previous socket for this same player in this room so its close won't evict them
+        clients.forEach((other) => {
+          if (other !== client && other.playerId === incomingPlayerId && other.roomCode === roomCode) {
+            other.roomCode = null;
+          }
+        });
+
+        client.roomCode = roomCode;
+        client.playerId = incomingPlayerId;
+
+        const existingPlayer = room.players[client.playerId];
+        const isExistingHost = room.hostId === client.playerId;
+
+        // Preserve existing group assignment on reconnect, or auto-assign to group with fewest members
+        let assignedGroupId: string | undefined = existingPlayer?.groupId;
         if (room.mode === 'GROUP') {
-          const groupList = Object.values(room.groups);
-          groupList.sort((a, b) => a.memberIds.length - b.memberIds.length);
-          if (groupList.length > 0) {
-            assignedGroupId = groupList[0].id;
-            groupList[0].memberIds.push(client.playerId);
+          if (!assignedGroupId || !room.groups[assignedGroupId]) {
+            const groupList = Object.values(room.groups);
+            groupList.sort((a, b) => a.memberIds.length - b.memberIds.length);
+            if (groupList.length > 0) {
+              assignedGroupId = groupList[0].id;
+            }
+          }
+          if (assignedGroupId && room.groups[assignedGroupId]) {
+            if (!room.groups[assignedGroupId].memberIds.includes(client.playerId)) {
+              room.groups[assignedGroupId].memberIds.push(client.playerId);
+            }
           }
         }
 
         const newPlayer: PlayerProfile = {
           id: client.playerId,
-          name: (msg.payload.player.name || 'Pemain').trim().substring(0, 16),
-          character: msg.payload.player.character || 'boy',
-          colorVariant: msg.payload.player.colorVariant || 0,
-          isHost: false,
+          name: (msg.payload.player.name || existingPlayer?.name || 'Pemain').trim().substring(0, 16),
+          character: msg.payload.player.character || existingPlayer?.character || 'boy',
+          colorVariant: msg.payload.player.colorVariant ?? existingPlayer?.colorVariant ?? 0,
+          isHost: isExistingHost,
           isReady: true,
           groupId: assignedGroupId,
-          joinedAt: Date.now()
+          joinedAt: existingPlayer?.joinedAt ?? Date.now()
         };
 
         room.players[client.playerId] = newPlayer;
-        room.announcement = `${newPlayer.name} bergabung ke room!`;
+        room.announcement = existingPlayer
+          ? `${newPlayer.name} tersambung kembali ke room!`
+          : `${newPlayer.name} bergabung ke room!`;
+        room.updatedAt = Date.now();
 
         sendTo(client.ws, {
           type: 'ROOM_JOINED',
@@ -566,9 +607,11 @@ async function startServer() {
           );
         }
 
-        // Add to new group
+        // Add to new group without duplicates
         player.groupId = groupId;
-        room.groups[groupId].memberIds.push(client.playerId);
+        if (!room.groups[groupId].memberIds.includes(client.playerId)) {
+          room.groups[groupId].memberIds.push(client.playerId);
+        }
         room.announcement = `${player.name} berpindah ke ${room.groups[groupId].name}.`;
         broadcastRoomState(client.roomCode);
         break;
@@ -600,11 +643,24 @@ async function startServer() {
         }
 
         room.phase = 'MUSIC_PLAYING';
+        room.roundNumber = 1;
+        room.activeTargetGroupId = null;
+        room.feedbackResult = null;
+        room.feedbackElapsed = 0;
+        room.commandDialogElapsed = 0;
+        room.actionElapsed = 0;
         room.questionIndex = 0;
         room.currentQuestion = SERVER_MATH_QUESTIONS[0];
         room.numberLineStart = room.currentQuestion.start;
         room.numberLineCurrent = room.currentQuestion.start;
         room.announcement = 'Permainan dimulai! Bersiap untuk Jamuran!';
+        room.updatedAt = Date.now();
+
+        // Broadcast explicit GAME_STARTED event AND authoritative ROOM_STATE_UPDATE to ALL clients in the room
+        broadcastToRoom(client.roomCode, {
+          type: 'GAME_STARTED',
+          payload: { roomCode: room.roomCode, roomState: room }
+        });
         broadcastRoomState(client.roomCode);
         break;
       }
@@ -773,10 +829,17 @@ async function startServer() {
         const room = rooms.get(client.roomCode);
         if (!room) return;
 
+        // Only the room host advances timed phases to prevent duplicate client transitions
+        if (room.hostId !== client.playerId) return;
+
+        // Idempotency guard when client specifies expected currentPhase
+        if (msg.payload?.currentPhase && msg.payload.currentPhase !== room.phase) return;
+
         // Progress phases
         if (room.phase === 'MUSIC_PLAYING') {
           room.phase = 'JAMUR_COMMAND';
-          room.activeCommand = SERVER_JAMUR_COMMANDS[Math.floor(Math.random() * SERVER_JAMUR_COMMANDS.length)];
+          const cmdIndex = room.roundNumber % 2 !== 0 ? 0 : 1; // 0: gagak (1.mp3->2.mp3), 1: kethek (3.mp3->4.mp3)
+          room.activeCommand = SERVER_JAMUR_COMMANDS[cmdIndex] || SERVER_JAMUR_COMMANDS[0];
           room.commandDialogElapsed = 0;
           broadcastRoomState(client.roomCode);
         } else if (room.phase === 'JAMUR_COMMAND') {

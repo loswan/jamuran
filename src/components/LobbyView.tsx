@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RoomState } from '../types/game';
 import { multiplayerService } from '../services/multiplayerService';
 import { Button, Panel, Badge } from './ui';
@@ -24,6 +24,23 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
 }) => {
   const [copied, setCopied] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string>('');
+  const [isStarting, setIsStarting] = useState<boolean>(false);
+
+  useEffect(() => {
+    const unsubError = multiplayerService.onError((err) => {
+      setErrorMsg(err);
+      setIsStarting(false);
+    });
+    return () => {
+      unsubError();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (roomState.phase !== 'LOBBY') {
+      setIsStarting(false);
+    }
+  }, [roomState.phase]);
 
   const myPlayer = roomState.players[myPlayerId];
   const isHost = myPlayer?.isHost || roomState.hostId === myPlayerId;
@@ -51,6 +68,7 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
       return;
     }
     setErrorMsg('');
+    setIsStarting(true);
     onStartGame();
   };
 
@@ -248,10 +266,10 @@ export const LobbyView: React.FC<LobbyViewProps> = ({
                   fullWidth
                   size="md"
                   onClick={handleStart}
-                  disabled={!canStart}
+                  disabled={!canStart || isStarting}
                   icon={<Play className="w-4 h-4 fill-current" />}
                 >
-                  MULAI GAME KELAS
+                  {isStarting ? 'MEMULAI GAME...' : 'MULAI GAME KELAS'}
                 </Button>
                 {!canStart && (
                   <p className="text-[10px] text-amber-300 text-center mt-1 font-medium">

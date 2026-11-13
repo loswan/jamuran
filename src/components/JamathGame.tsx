@@ -82,6 +82,8 @@ export const JamathGame: React.FC = () => {
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [currentLyric, setCurrentLyric] = useState<string>('Mari bermain Jamuran!');
   const [serverRoomState, setServerRoomState] = useState<RoomState | null>(null);
+  const serverRoomStateRef = useRef<RoomState | null>(null);
+  const phaseCompleteSentRef = useRef<GameState | null>(null);
 
   // In-Game Pause States
   const [isPaused, setIsPaused] = useState<boolean>(false);
@@ -200,11 +202,38 @@ export const JamathGame: React.FC = () => {
     let prevPhase: string | null = null;
     let prevPancerGroup: string | null = null;
 
-    const unsubscribeState = multiplayerService.onStateUpdate((roomState) => {
+    const applyRoomState = (roomState: RoomState) => {
+      serverRoomStateRef.current = roomState;
       setServerRoomState(roomState);
 
-      if (stateRef.current.gameMode === 'GROUP') {
+      if (roomState.mode === 'GROUP') {
+        if (stateRef.current.gameMode !== 'GROUP') {
+          stateRef.current.gameMode = 'GROUP';
+          setGameMode('GROUP');
+        }
+
+        // Synchronize screen navigation for ALL clients (Host & Player 2+)
+        if (roomState.phase === 'LOBBY') {
+          setAppScreen('LOBBY');
+        } else {
+          setAppScreen('GAME');
+        }
+
         const isPhaseChange = prevPhase !== roomState.phase;
+
+        if (isPhaseChange) {
+          phaseCompleteSentRef.current = null;
+        }
+
+        // Reset local phase animation timers cleanly on phase transitions
+        if (isPhaseChange && roomState.phase === 'JAMUR_COMMAND') {
+          stateRef.current.commandDialogElapsed = 0;
+          audioManager.playWhistle();
+        } else if (isPhaseChange && roomState.phase === 'JAMUR_ACTION') {
+          stateRef.current.actionElapsed = 0;
+        } else if (isPhaseChange && (roomState.phase === 'FEEDBACK_CORRECT' || roomState.phase === 'FEEDBACK_WRONG')) {
+          stateRef.current.feedbackElapsed = 0;
+        }
 
         // Obstacle success sound when completing JAMUR_ACTION
         if (isPhaseChange && prevPhase === 'JAMUR_ACTION') {
@@ -219,6 +248,7 @@ export const JamathGame: React.FC = () => {
           audioManager.playPancerTransition();
         }
 
+        const previousPhaseBeforeUpdate = prevPhase;
         prevPhase = roomState.phase;
         prevPancerGroup = roomState.pancerGroupId;
 
@@ -231,15 +261,23 @@ export const JamathGame: React.FC = () => {
         stateRef.current.activeCommand = roomState.activeCommand;
         stateRef.current.feedbackResult = roomState.feedbackResult;
 
-        // Sync Jamuran audio phase
-        if (roomState.phase === 'MUSIC_PLAYING') {
-          jamuranAudioController.playCirclingForRound(roomState.roundNumber || 1);
-        } else if (roomState.phase === 'JAMUR_COMMAND' || roomState.phase === 'JAMUR_ACTION') {
-          const round = roomState.roundNumber || 1;
-          const circlingTrackIndex = round % 2 !== 0 ? 0 : 2;
-          jamuranAudioController.playCommandForCirclingTrack(circlingTrackIndex);
-        } else {
-          jamuranAudioController.pause();
+        // Sync Jamuran audio ONLY on phase change (prevents restarting track on mid-phase updates)
+        if (isPhaseChange) {
+          if (roomState.phase === 'MUSIC_PLAYING') {
+            jamuranAudioController.playCirclingForRound(roomState.roundNumber || 1);
+          } else if (roomState.phase === 'JAMUR_COMMAND') {
+            const round = roomState.roundNumber || 1;
+            const circlingTrackIndex = round % 2 !== 0 ? 0 : 2;
+            jamuranAudioController.playCommandForCirclingTrack(circlingTrackIndex);
+          } else if (roomState.phase === 'JAMUR_ACTION') {
+            if (previousPhaseBeforeUpdate !== 'JAMUR_COMMAND') {
+              const round = roomState.roundNumber || 1;
+              const circlingTrackIndex = round % 2 !== 0 ? 0 : 2;
+              jamuranAudioController.playCommandForCirclingTrack(circlingTrackIndex);
+            }
+          } else {
+            jamuranAudioController.pause();
+          }
         }
 
         // Keep track of current challenge question so victory transition screen displays the exact solved formula
@@ -248,21 +286,28 @@ export const JamathGame: React.FC = () => {
         }
 
         // Celebrate on correct with screen transition
-        if (roomState.phase === 'FEEDBACK_CORRECT') {
+        if (isPhaseChange && roomState.phase === 'FEEDBACK_CORRECT') {
           setSolvedQuestion(currentChallengeQuestionRef.current || roomState.currentQuestion);
           audioManager.playCorrect();
           spawnConfetti();
           spawnVictorySparkles();
-        } else if (roomState.phase === 'FEEDBACK_WRONG') {
+        } else if (isPhaseChange && roomState.phase === 'FEEDBACK_WRONG') {
           audioManager.playWrong();
-        } else if (roomState.phase === 'MUSIC_PLAYING') {
+        } else if (isPhaseChange && roomState.phase === 'MUSIC_PLAYING') {
           setSolvedQuestion(null);
         }
       }
+    };
+
+    const unsubscribeState = multiplayerService.onStateUpdate(applyRoomState);
+    const unsubscribeGameStarted = multiplayerService.onGameStarted((roomState) => {
+      setAppScreen('GAME');
+      applyRoomState(roomState);
     });
 
     return () => {
       unsubscribeState();
+      unsubscribeGameStarted();
     };
   }, []);
 
@@ -310,12 +355,15 @@ export const JamathGame: React.FC = () => {
     setIsPaused(false);
     jamuranAudioController.stop();
     jamuranAudioController.resetToBeginning();
-    if (gameMode === 'GROUP') {
+    if (stateRef.current.gameMode === 'GROUP') {
       multiplayerService.leaveRoom();
+      serverRoomStateRef.current = null;
+      setServerRoomState(null);
     }
+    setAppScreen('GAME');
     stateRef.current.gameState = 'MENU';
     setGameState('MENU');
-  }, [gameMode]);
+  }, []);
 
   // Auto-pause when user leaves the tab (switches tab, minimizes, switches mobile app)
   useEffect(() => {
@@ -405,9 +453,29 @@ export const JamathGame: React.FC = () => {
     stateRef.current.victorySparkles = sparkles;
   };
 
-  // Track ended callback for Singleplayer sequence: 1.mp3 -> 2.mp3 -> 3.mp3 -> 4.mp3 -> 1.mp3
+  // Track ended callback for sequence: 1.mp3 -> 2.mp3 -> 3.mp3 -> 4.mp3 -> 1.mp3
   const handleTrackEnded = useCallback((completedTrackIndex: number, nextTrackIndex: number) => {
     const st = stateRef.current;
+
+    if (st.gameMode === 'GROUP') {
+      const room = serverRoomStateRef.current;
+      const isHost = Boolean(room && room.hostId === st.playerProfile.id);
+      if (!isHost || !room) return;
+
+      if ((completedTrackIndex === 0 || completedTrackIndex === 2) && room.phase === 'MUSIC_PLAYING') {
+        if (phaseCompleteSentRef.current !== 'MUSIC_PLAYING') {
+          phaseCompleteSentRef.current = 'MUSIC_PLAYING';
+          multiplayerService.phaseComplete('MUSIC_PLAYING');
+        }
+      } else if ((completedTrackIndex === 1 || completedTrackIndex === 3) && room.phase === 'JAMUR_ACTION') {
+        if (phaseCompleteSentRef.current !== 'JAMUR_ACTION') {
+          phaseCompleteSentRef.current = 'JAMUR_ACTION';
+          multiplayerService.phaseComplete('JAMUR_ACTION');
+        }
+      }
+      return;
+    }
+
     if (st.gameMode !== 'INDIVIDUAL') return;
 
     if (completedTrackIndex === 0 || completedTrackIndex === 2) {
@@ -661,6 +729,7 @@ export const JamathGame: React.FC = () => {
 
   // Main Canvas Render Loop with ResizeObserver System
   useEffect(() => {
+    if (appScreen !== 'GAME') return;
     const canvas = canvasRef.current;
     const container = canvasContainerRef.current;
     if (!canvas || !container) return;
@@ -741,6 +810,7 @@ export const JamathGame: React.FC = () => {
 
     const loop = (timestamp: number) => {
       const st = stateRef.current;
+      const currentRoomState = serverRoomStateRef.current;
       const actualDelta = Math.min((timestamp - st.lastFrameTime) / 1000, 0.05);
       st.lastFrameTime = timestamp;
 
@@ -779,24 +849,35 @@ export const JamathGame: React.FC = () => {
       } else if (st.gameState === 'MUSIC_PLAYING') {
         updateCirclePhysics(st, deltaTime, circleRadius, centerX, centerY);
         const audioTime = jamuranAudioController.getCurrentTime();
-        drawCircleParticipants(ctx, st, centerX, centerY, serverRoomState, arenaH, 'holding_hands', audioTime > 0 ? audioTime : (performance.now() / 1000));
+        drawCircleParticipants(ctx, st, centerX, centerY, currentRoomState, arenaH, 'holding_hands', audioTime > 0 ? audioTime : (performance.now() / 1000));
       } else if (st.gameState === 'JAMUR_COMMAND') {
         updateCirclePositionsStatic(st, circleRadius, centerX, centerY);
         st.commandDialogElapsed += deltaTime;
-        drawCircleParticipants(ctx, st, centerX, centerY, serverRoomState, arenaH, 'normal', st.commandDialogElapsed);
+        drawCircleParticipants(ctx, st, centerX, centerY, currentRoomState, arenaH, 'normal', st.commandDialogElapsed);
 
         drawPancerCommandDialog(ctx, w, h, st.activeCommand, st.commandDialogElapsed, isLandscape);
 
-        if (st.gameMode === 'INDIVIDUAL' && st.commandDialogElapsed >= 2.0) {
-          st.gameState = 'JAMUR_ACTION';
-          st.actionElapsed = 0;
-          setGameState('JAMUR_ACTION');
+        if (st.commandDialogElapsed >= 2.0) {
+          if (st.gameMode === 'INDIVIDUAL') {
+            st.gameState = 'JAMUR_ACTION';
+            st.actionElapsed = 0;
+            setGameState('JAMUR_ACTION');
+          } else if (
+            st.gameMode === 'GROUP' &&
+            currentRoomState &&
+            currentRoomState.hostId === st.playerProfile.id &&
+            currentRoomState.phase === 'JAMUR_COMMAND' &&
+            phaseCompleteSentRef.current !== 'JAMUR_COMMAND'
+          ) {
+            phaseCompleteSentRef.current = 'JAMUR_COMMAND';
+            multiplayerService.phaseComplete('JAMUR_COMMAND');
+          }
         }
       } else if (st.gameState === 'JAMUR_ACTION') {
         updateCirclePositionsStatic(st, circleRadius, centerX, centerY);
         const prevActionElapsed = st.actionElapsed;
         st.actionElapsed += deltaTime;
-        drawCircleParticipants(ctx, st, centerX, centerY, serverRoomState, arenaH, st.activeCommand.id, st.actionElapsed);
+        drawCircleParticipants(ctx, st, centerX, centerY, currentRoomState, arenaH, st.activeCommand.id, st.actionElapsed);
         drawActionBanner(
           ctx,
           w,
@@ -818,12 +899,23 @@ export const JamathGame: React.FC = () => {
           audioManager.playPoseCountdownTick(curSec);
         }
 
-        if (st.gameMode === 'INDIVIDUAL' && st.actionElapsed >= st.activeCommand.duration) {
-          audioManager.playObstacleSuccess();
-          st.gameState = 'MATH_CHALLENGE';
-          st.feedbackResult = null;
-          setGameState('MATH_CHALLENGE');
-          jamuranAudioController.pause();
+        if (st.actionElapsed >= st.activeCommand.duration) {
+          if (st.gameMode === 'INDIVIDUAL') {
+            audioManager.playObstacleSuccess();
+            st.gameState = 'MATH_CHALLENGE';
+            st.feedbackResult = null;
+            setGameState('MATH_CHALLENGE');
+            jamuranAudioController.pause();
+          } else if (
+            st.gameMode === 'GROUP' &&
+            currentRoomState &&
+            currentRoomState.hostId === st.playerProfile.id &&
+            currentRoomState.phase === 'JAMUR_ACTION' &&
+            phaseCompleteSentRef.current !== 'JAMUR_ACTION'
+          ) {
+            phaseCompleteSentRef.current = 'JAMUR_ACTION';
+            multiplayerService.phaseComplete('JAMUR_ACTION');
+          }
         }
       } else if (
         st.gameState === 'TURN_NOMINATION' ||
@@ -837,7 +929,7 @@ export const JamathGame: React.FC = () => {
           st,
           centerX,
           centerY,
-          serverRoomState,
+          currentRoomState,
           arenaH,
           st.gameState === 'FEEDBACK_CORRECT' ? 'correct' : 'normal',
           st.feedbackElapsed
@@ -845,7 +937,7 @@ export const JamathGame: React.FC = () => {
         drawBlurredBackgroundOverlay(ctx, w, h);
 
         if (st.gameState === 'MATH_CHALLENGE' || st.gameState === 'FEEDBACK_CORRECT' || st.gameState === 'FEEDBACK_WRONG') {
-          drawLandscapeMathStage(ctx, w, h, st, deltaTime, serverRoomState, isLandscape);
+          drawLandscapeMathStage(ctx, w, h, st, deltaTime, currentRoomState, isLandscape);
         }
 
         if (st.gameState === 'FEEDBACK_CORRECT') {
@@ -872,7 +964,7 @@ export const JamathGame: React.FC = () => {
       window.removeEventListener('orientationchange', onWindowResize);
       jamuranAudioController.stop();
     };
-  }, [continueSingleplayerToNextRound, serverRoomState]);
+  }, [appScreen, continueSingleplayerToNextRound]);
 
   // Click on Canvas
   const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -955,13 +1047,15 @@ export const JamathGame: React.FC = () => {
             onToggleFullscreen={toggleFullscreen}
             onStartGame={() => {
               multiplayerService.startGame();
-              setAppScreen('GAME');
             }}
             onLeaveRoom={() => {
               multiplayerService.leaveRoom();
+              serverRoomStateRef.current = null;
+              setServerRoomState(null);
               jamuranAudioController.stop();
               jamuranAudioController.resetToBeginning();
               setAppScreen('GAME');
+              stateRef.current.gameState = 'MENU';
               setGameState('MENU');
             }}
           />
@@ -989,7 +1083,10 @@ export const JamathGame: React.FC = () => {
                 jamuranAudioController.resetToBeginning();
                 if (gameMode === 'GROUP') {
                   multiplayerService.leaveRoom();
+                  serverRoomStateRef.current = null;
+                  setServerRoomState(null);
                 }
+                setAppScreen('GAME');
                 stateRef.current.gameState = 'MENU';
                 setGameState('MENU');
               }}
@@ -1211,9 +1308,13 @@ export const JamathGame: React.FC = () => {
         <RoomJoinCreateModal
           player={playerProfile}
           mode={gameMode}
-          onSuccess={() => {
+          onSuccess={(joinedState) => {
             setShowRoomModal(false);
-            setAppScreen('LOBBY');
+            if (joinedState && joinedState.phase !== 'LOBBY') {
+              setAppScreen('GAME');
+            } else {
+              setAppScreen('LOBBY');
+            }
           }}
           onClose={() => setShowRoomModal(false)}
           onChangeIdentity={() => {

@@ -10,6 +10,7 @@ class MultiplayerService {
   private currentRoomCode: string | null = null;
   private myPlayerId: string = `p_${Math.random().toString(36).substring(2, 9)}`;
   private stateListeners: Set<StateListener> = new Set();
+  private gameStartedListeners: Set<StateListener> = new Set();
   private announcementListeners: Set<AnnouncementListener> = new Set();
   private errorListeners: Set<ErrorListener> = new Set();
   private connectionListeners: Set<ConnectionListener> = new Set();
@@ -188,6 +189,13 @@ class MultiplayerService {
         this.notifyState(msg.payload);
         break;
 
+      case 'GAME_STARTED':
+        this.currentRoomCode = msg.payload.roomCode;
+        this.lastKnownState = msg.payload.roomState;
+        this.notifyGameStarted(msg.payload.roomState);
+        this.notifyState(msg.payload.roomState);
+        break;
+
       case 'ANNOUNCEMENT':
         this.notifyAnnouncement(msg.payload.message, msg.payload.level);
         break;
@@ -215,7 +223,10 @@ class MultiplayerService {
   public async createRoom(mode: GameMode, player: Omit<PlayerProfile, 'isHost' | 'joinedAt'>) {
     this.manualDisconnect = false;
     this.storedPlayerProfile = player;
-    await this.connect();
+    const connected = await this.connect();
+    if (!connected) {
+      throw new Error('Gagal terhubung ke server WebSocket. Periksa koneksi internet Anda.');
+    }
     this.send({
       type: 'CREATE_ROOM',
       payload: { mode, player: { ...player, id: this.myPlayerId } }
@@ -225,7 +236,10 @@ class MultiplayerService {
   public async joinRoom(roomCode: string, player: Omit<PlayerProfile, 'isHost' | 'joinedAt'>) {
     this.manualDisconnect = false;
     this.storedPlayerProfile = player;
-    await this.connect();
+    const connected = await this.connect();
+    if (!connected) {
+      throw new Error('Gagal terhubung ke server WebSocket. Periksa koneksi internet Anda.');
+    }
     this.send({
       type: 'JOIN_ROOM',
       payload: { roomCode: roomCode.trim().toUpperCase(), player: { ...player, id: this.myPlayerId } }
@@ -242,6 +256,13 @@ class MultiplayerService {
   public startGame() {
     this.send({
       type: 'START_GAME'
+    });
+  }
+
+  public phaseComplete(currentPhase?: RoomState['phase']) {
+    this.send({
+      type: 'PHASE_COMPLETE',
+      payload: currentPhase ? { currentPhase } : undefined
     });
   }
 
@@ -304,6 +325,11 @@ class MultiplayerService {
     return () => this.stateListeners.delete(listener);
   }
 
+  public onGameStarted(listener: StateListener): () => void {
+    this.gameStartedListeners.add(listener);
+    return () => this.gameStartedListeners.delete(listener);
+  }
+
   public onAnnouncement(listener: AnnouncementListener): () => void {
     this.announcementListeners.add(listener);
     return () => this.announcementListeners.delete(listener);
@@ -322,6 +348,10 @@ class MultiplayerService {
 
   private notifyState(state: RoomState) {
     this.stateListeners.forEach((l) => l(state));
+  }
+
+  private notifyGameStarted(state: RoomState) {
+    this.gameStartedListeners.forEach((l) => l(state));
   }
 
   private notifyAnnouncement(msg: string, level?: 'info' | 'success' | 'warning') {
